@@ -1,17 +1,8 @@
-/**
- * sceneManager.js — Orchestrateur principal
- * -----------------------------------------------------------------
- * Responsable de :
- *  - la navigation entre écrans (.screen dans index.html)
- *  - la résolution d'une scène GAME_DATA (dialogue / map / evidence /
- *    decision / result) vers le bon rendu
- *  - la synchronisation avec SaveManager à chaque étape clé
- * Ne contient aucune donnée narrative en dur : tout vient de script.js
- */
-
 const SceneManager = (() => {
   let state = null; // état de sauvegarde courant (voir saveManager.js)
   let screens = {};
+  let history = [];   // pile {chapterId, sceneId} pour le bouton "retour"
+  let pauseOpen = false;
 
   function bindDOM() {
     document.querySelectorAll('.screen').forEach(el => {
@@ -20,6 +11,12 @@ const SceneManager = (() => {
   }
 
   function showScreen(name) {
+    // La lecture automatique (voix) ne doit vivre que dans l'écran de
+    // dialogue : dès qu'on le quitte (menu, carte, preuves, etc.), on
+    // coupe la voix et les minuteurs en cours.
+    if (name !== 'dialogue') {
+      DialogueEngine.stop();
+    }
     Object.values(screens).forEach(el => el.classList.remove('active'));
     if (screens[name]) screens[name].classList.add('active');
     document.getElementById('app').dataset.currentScreen = name;
@@ -30,14 +27,15 @@ const SceneManager = (() => {
     bgEl.dataset.bg = bgId || 'default';
   }
 
-  // ---------------------------------------------------------------
+
   // Cycle de vie de l'application
-  // ---------------------------------------------------------------
+
   function init() {
     bindDOM();
     DialogueEngine.bindDOM();
     MapManager.bindDOM();
     ProgressMap.bindDOM();
+    ProgressionTrail.bindDOM();
     state = SaveManager.load();
 
     if (!state.hasSeenIntro) {
@@ -49,9 +47,11 @@ const SceneManager = (() => {
     bindGlobalControls();
   }
 
-  // ---------------------------------------------------------------
-  // Prologue cinématique (premier lancement uniquement)
-  // ---------------------------------------------------------------
+
+  // Prologue cinématique 
+  // depuis le menu via "Revoir le prologue"   machine à écrire 
+  // sombre et solennelle que le reste du jeu.
+
   function playPrologue() {
     showScreen('prologue');
     setBackground('prologue');
@@ -60,10 +60,14 @@ const SceneManager = (() => {
     const lineEl = document.getElementById('prologue-line');
     const eyebrowEl = document.getElementById('prologue-eyebrow');
     const screenEl = document.querySelector('[data-screen="prologue"]');
-    let i = -1; // -1 = carte-titre "PROLOGUE" affichée seule
-    let waiting = false;
+    let i = -1;         // -1 = carte-titre "PROLOGUE" affichée seule
+    let typing = false;
+    let typeTimer = null;
+    let waitTimer = null;
 
     function endPrologue() {
+      clearTimeout(typeTimer);
+      clearTimeout(waitTimer);
       state.hasSeenIntro = true;
       SaveManager.save(state);
       screenEl.removeEventListener('click', advanceStep);
@@ -71,32 +75,59 @@ const SceneManager = (() => {
       showMenu();
     }
 
+    function typeLine(text) {
+      typing = true;
+      lineEl.classList.add('visible');
+      lineEl.textContent = '';
+      let c = 0;
+      function tick() {
+        if (!typing) return;
+        lineEl.textContent = text.slice(0, c + 1);
+        c++;
+        if (c < text.length) {
+          typeTimer = setTimeout(tick, 38);
+        } else {
+          finishTyping(text);
+        }
+      }
+      tick();
+    }
+
+    function finishTyping(text) {
+      typing = false;
+      lineEl.textContent = text;
+      const pause = Math.max(1600, text.length * 45);
+      waitTimer = setTimeout(() => advanceStep(), pause);
+    }
+
     function showStep() {
+      clearTimeout(typeTimer);
+      clearTimeout(waitTimer);
       if (i === -1) {
         eyebrowEl.classList.add('visible');
         lineEl.classList.remove('visible');
         lineEl.textContent = '';
+        waitTimer = setTimeout(() => advanceStep(), 1800);
       } else if (i < lines.length) {
         eyebrowEl.classList.remove('visible');
-        lineEl.textContent = lines[i];
-        // reflow pour rejouer l'animation de fondu à chaque ligne
-        lineEl.classList.remove('visible');
-        void lineEl.offsetWidth;
-        lineEl.classList.add('visible');
+        typeLine(lines[i]);
       } else {
         endPrologue();
-        return;
       }
-      waiting = true;
-      const delay = i === -1 ? 1800 : Math.max(2200, lines[i].length * 65);
-      clearTimeout(screenEl._autoTimer);
-      screenEl._autoTimer = setTimeout(() => { if (waiting) advanceStep(); }, delay);
     }
 
     function advanceStep(e) {
       if (e && e.target && e.target.id === 'btn-skip-prologue') return; // géré séparément
-      clearTimeout(screenEl._autoTimer);
-      waiting = false;
+      if (typing) {
+        // premier clic pendant la frappe : affiche la ligne en entier
+        typing = false;
+        clearTimeout(typeTimer);
+        lineEl.textContent = lines[i];
+        clearTimeout(waitTimer);
+        waitTimer = setTimeout(() => advanceStep(), 1200);
+        return;
+      }
+      clearTimeout(waitTimer);
       i++;
       showStep();
     }
@@ -112,17 +143,17 @@ const SceneManager = (() => {
     showStep();
   }
 
-  // ---------------------------------------------------------------
+ 
   // Menu principal
-  // ---------------------------------------------------------------
+  
   function showMenu() {
     showScreen('menu');
     setBackground('menu');
   }
 
-  // ---------------------------------------------------------------
+  
   // Sélection des chapitres
-  // ---------------------------------------------------------------
+
   function showChapterSelect() {
     showScreen('chapters');
     setBackground('menu');
@@ -147,8 +178,6 @@ const SceneManager = (() => {
 
   function startChapter(chapterId) {
     const chapter = getChapter(chapterId);
-    state.current = { chapterId, sceneId: chapter.startScene };
-    SaveManager.save(state);
     playScene(chapterId, chapter.startScene);
   }
 
@@ -163,10 +192,11 @@ const SceneManager = (() => {
     SaveManager.save(state);
   }
 
-  // ---------------------------------------------------------------
   // Résolution générique d'une scène (dialogue / map / evidence / etc.)
-  // ---------------------------------------------------------------
-  function playScene(chapterId, sceneId) {
+  // opts.skipHistory : ne pousse pas la scène quittée dans l'historique
+  // (utilisé par goBack() pour éviter les allers-retours en boucle)
+
+  function playScene(chapterId, sceneId, opts = {}) {
     const chapter = getChapter(chapterId);
     const scene = chapter.scenes[sceneId];
 
@@ -177,9 +207,16 @@ const SceneManager = (() => {
 
     // redirection technique (utilisée par la carte pour revenir sur elle-même)
     if (scene.redirectTo) {
-      playScene(chapterId, scene.redirectTo);
+      playScene(chapterId, scene.redirectTo, opts);
       return;
     }
+
+    if (!opts.skipHistory && state.current && state.current.sceneId) {
+      history.push({ chapterId: state.current.chapterId, sceneId: state.current.sceneId });
+    }
+
+    const sceneKey = `${chapterId}:${sceneId}`;
+    if (!state.visitedScenes.includes(sceneKey)) state.visitedScenes.push(sceneKey);
 
     state.current = { chapterId, sceneId };
     SaveManager.save(state);
@@ -192,6 +229,17 @@ const SceneManager = (() => {
       case 'result': return renderResult(chapterId, scene);
       default:
         console.error(`Type de scène inconnu: ${scene.type}`);
+    }
+  }
+
+  // Retour à la scène précédente (bouton "‹" ou pause > Revenir en arrière)
+  function goBack() {
+    closePause();
+    if (history.length > 0) {
+      const prev = history.pop();
+      playScene(prev.chapterId, prev.sceneId, { skipHistory: true });
+    } else {
+      showChapterSelect();
     }
   }
 
@@ -213,7 +261,7 @@ const SceneManager = (() => {
     }
   }
 
-  // --- Dialogue -----------------------------------------------------
+  //  Dialogue 
   function renderDialogue(chapterId, scene) {
     showScreen('dialogue');
     setBackground(scene.background);
@@ -221,7 +269,7 @@ const SceneManager = (() => {
     DialogueEngine.start(scene.lines, () => goNext(chapterId, scene));
   }
 
-  // --- Carte / enquête ------------------------------------------------
+  //  Carte / enquête 
   function renderMap(chapterId, sceneId, scene) {
     showScreen('map');
     setBackground(scene.background);
@@ -249,7 +297,7 @@ const SceneManager = (() => {
     continueBtn.onclick = () => goNext(chapterId, scene);
   }
 
-  // --- Analyse de preuves --------------------------------------------
+  //  Analyse de preuves 
   function renderEvidence(chapterId, scene) {
     showScreen('evidence');
     setBackground(scene.background);
@@ -279,7 +327,7 @@ const SceneManager = (() => {
     continueBtn.onclick = () => goNext(chapterId, scene);
   }
 
-  // --- Décision ---------------------------------------------------
+  // Décision 
   function renderDecision(chapterId, scene) {
     showScreen('decision');
     setBackground(scene.background);
@@ -296,7 +344,7 @@ const SceneManager = (() => {
     });
   }
 
-  // --- Résultat -----------------------------------------------------
+  //  Résultat
   function renderResult(chapterId, scene) {
     showScreen('result');
     setBackground(scene.background);
@@ -308,33 +356,69 @@ const SceneManager = (() => {
     btn.onclick = () => goNext(chapterId, scene);
   }
 
-  // ---------------------------------------------------------------
-  // Carte du jeu / progression
-  // ---------------------------------------------------------------
-  function showWorldMap() {
+  // Carte du jeu : deux vues (Scénario / Progression), sous onglets
+
+  function showWorldMap(initialTab) {
     showScreen('worldmap');
     setBackground('menu');
-    ProgressMap.render(window.GAME_DATA.chapters, state, (chapterId) => {
-      const chapter = getChapter(chapterId);
-      const alreadyStarted = state.current && state.current.chapterId === chapterId && state.current.sceneId;
-      if (alreadyStarted) {
-        playScene(chapterId, state.current.sceneId);
-      } else {
-        startChapter(chapterId);
-      }
-    });
+    switchMapTab(initialTab || 'scenario');
   }
 
-  // ---------------------------------------------------------------
+  function switchMapTab(tab) {
+    document.getElementById('tab-scenario').classList.toggle('active', tab === 'scenario');
+    document.getElementById('tab-progression').classList.toggle('active', tab === 'progression');
+    document.getElementById('view-scenario').classList.toggle('active', tab === 'scenario');
+    document.getElementById('view-progression').classList.toggle('active', tab === 'progression');
+
+    if (tab === 'scenario') {
+      ProgressMap.render(window.GAME_DATA.chapters, state, (chapterId) => {
+        const alreadyStarted = state.current && state.current.chapterId === chapterId && state.current.sceneId;
+        if (alreadyStarted) {
+          playScene(chapterId, state.current.sceneId);
+        } else {
+          startChapter(chapterId);
+        }
+      });
+    } else {
+      ProgressionTrail.render(window.GAME_DATA.chapters, state, (chapterId, sceneId) => {
+        playScene(chapterId, sceneId);
+      });
+    }
+  }
+
+
+  // Overlay de pause (accessible depuis tous les écrans de jeu)
+
+  function openPause() {
+    if (pauseOpen) return;
+    pauseOpen = true;
+    DialogueEngine.stop(); // coupe la voix pendant la pause
+    document.getElementById('pause-overlay').classList.add('visible');
+  }
+
+
+  function closePause() {
+    if (!pauseOpen) return;
+    pauseOpen = false;
+    document.getElementById('pause-overlay').classList.remove('visible');
+    // en mode lecture automatique, on relance la ligne de dialogue en cours
+    if (document.getElementById('app').dataset.currentScreen === 'dialogue') {
+      DialogueEngine.resume();
+    }
+  }
+
   // Contrôles globaux (avance du dialogue, boutons Auto/Hist/Sauv…)
-  // ---------------------------------------------------------------
+
   function bindGlobalControls() {
     const dlgBox = document.getElementById('dialogue-box');
     dlgBox.addEventListener('click', () => DialogueEngine.advance());
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && screens.dialogue.classList.contains('active')) {
+      if (e.code === 'Space' && screens.dialogue.classList.contains('active') && !pauseOpen) {
         e.preventDefault();
         DialogueEngine.advance();
+      }
+      if (e.code === 'Escape') {
+        pauseOpen ? closePause() : openPause();
       }
     });
 
@@ -357,12 +441,44 @@ const SceneManager = (() => {
       el.addEventListener('click', () => showScreen(el.dataset.simpleScreen));
     });
 
-    // Menu principal : Commencer / Carte / Quitter
+    // Bouton pause (☰) et bouton retour (‹), présents sur tous les écrans de jeu
+    document.querySelectorAll('.pause-trigger').forEach(el => {
+      el.addEventListener('click', openPause);
+    });
+    document.querySelectorAll('.back-scene-btn').forEach(el => {
+      el.addEventListener('click', goBack);
+    });
+
+    // Panneau de pause
+    document.getElementById('pause-resume').addEventListener('click', closePause);
+    document.getElementById('pause-back').addEventListener('click', goBack);
+    document.getElementById('pause-save').addEventListener('click', () => {
+      SaveManager.save(state);
+      flashToast('Partie sauvegardée.');
+      closePause();
+    });
+    document.getElementById('pause-chapters').addEventListener('click', () => {
+      closePause();
+      showChapterSelect();
+    });
+    document.getElementById('pause-menu').addEventListener('click', () => {
+      closePause();
+      showMenu();
+    });
+
+    // Onglets de la carte du jeu
+    document.getElementById('tab-scenario').addEventListener('click', () => switchMapTab('scenario'));
+    document.getElementById('tab-progression').addEventListener('click', () => switchMapTab('progression'));
+
+    // Menu principal : Commencer / Carte / Prologue / Quitter
     document.getElementById('btn-commencer').addEventListener('click', () => {
       showChapterSelect();
     });
     document.getElementById('btn-carte').addEventListener('click', () => {
       showWorldMap();
+    });
+    document.getElementById('btn-prologue').addEventListener('click', () => {
+      playPrologue();
     });
     document.getElementById('btn-quitter').addEventListener('click', () => {
       flashToast("Merci d'avoir joué à Ombres d'Encre.");
@@ -393,6 +509,14 @@ const SceneManager = (() => {
       DialogueEngine.setAutoRead(autoReadCheckbox.checked);
     });
 
+    const resetBtn = document.getElementById('btn-reset-save');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        SaveManager.reset();
+        flashToast('Progression réinitialisée. Rechargez la page.');
+      });
+    }
+
     generateParticles();
   }
 
@@ -413,7 +537,7 @@ const SceneManager = (() => {
 
   function resumeGame() {
     if (state.current && state.current.sceneId) {
-      playScene(state.current.chapterId, state.current.sceneId);
+      playScene(state.current.chapterId, state.current.sceneId, { skipHistory: true });
     } else {
       showChapterSelect();
     }

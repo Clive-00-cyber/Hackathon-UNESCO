@@ -12,7 +12,7 @@
 <body>
   <div id="app">
 
- 
+
     <div id="scene-background" data-bg="menu">
       <div class="particles" id="particles"></div>
     </div>
@@ -36,6 +36,7 @@
         <nav class="menu-list">
           <button class="menu-item" id="btn-commencer">Commencer</button>
           <button class="menu-item" id="btn-carte">Carte</button>
+          <button class="menu-item" id="btn-prologue">Revoir le prologue</button>
           <button class="menu-item" data-simple-screen="options">Options</button>
           <button class="menu-item" data-simple-screen="galerie">Galerie</button>
           <button class="menu-item" data-simple-screen="credits">Crédits</button>
@@ -49,25 +50,41 @@
     <section class="screen" data-screen="chapters">
       <h1 class="section-title">Chapitres</h1>
       <div class="chapter-grid" id="chapter-grid"></div>
-      <button class="back-link" data-nav="menu">‹ Retour
-        
-      </button>
+      <button class="back-link" data-nav="menu">‹ Retour</button>
     </section>
 
     <section class="screen" data-screen="worldmap">
-      <h1 class="section-title">Carte du récit</h1>
-      <div class="worldmap-frame">
-        <svg class="worldmap-path" id="worldmap-path" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <polyline points="15,72 50,32 85,68" />
-        </svg>
-        <div id="worldmap-nodes"></div>
+      <div class="map-tabs">
+        <button class="map-tab active" id="tab-scenario">Carte du scénario</button>
+        <button class="map-tab" id="tab-progression">Ma progression</button>
       </div>
-      <p class="worldmap-legend" id="worldmap-legend"></p>
+
+      <div class="map-view active" id="view-scenario">
+        <div class="worldmap-frame">
+          <svg class="worldmap-path" id="worldmap-path" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <polyline points="15,72 50,32 85,68" />
+          </svg>
+          <div id="worldmap-nodes"></div>
+        </div>
+        <p class="worldmap-legend" id="worldmap-legend"></p>
+      </div>
+
+
+      <div class="map-view" id="view-progression">
+        <div class="trail-frame" id="trail-frame">
+          <div class="trail-path" id="trail-path"></div>
+        </div>
+      </div>
+
       <button class="back-link" data-nav="menu">‹ Retour</button>
     </section>
 
 
     <section class="screen" data-screen="map">
+      <div class="ingame-topbar">
+        <button class="icon-btn pause-trigger" title="Pause">☰</button>
+        <button class="icon-btn back-scene-btn" title="Retour">‹</button>
+      </div>
       <div class="map-frame">
         <p class="map-intro" id="map-intro"></p>
         <div class="map-area">
@@ -79,6 +96,10 @@
     </section>
 
     <section class="screen" data-screen="evidence">
+      <div class="ingame-topbar">
+        <button class="icon-btn pause-trigger" title="Pause">☰</button>
+        <button class="icon-btn back-scene-btn" title="Retour">‹</button>
+      </div>
       <div class="evidence-frame">
         <h2 class="section-title small">Analyse des preuves</h2>
         <p class="evidence-intro" id="evidence-intro"></p>
@@ -92,6 +113,10 @@
 
 
     <section class="screen" data-screen="decision">
+      <div class="ingame-topbar">
+        <button class="icon-btn pause-trigger" title="Pause">☰</button>
+        <button class="icon-btn back-scene-btn" title="Retour">‹</button>
+      </div>
       <div class="decision-frame">
         <h2 class="section-title small">Le verdict</h2>
         <p class="decision-prompt" id="decision-prompt"></p>
@@ -101,6 +126,10 @@
 
 
     <section class="screen" data-screen="result">
+      <div class="ingame-topbar">
+        <button class="icon-btn pause-trigger" title="Pause">☰</button>
+        <button class="icon-btn back-scene-btn" title="Retour">‹</button>
+      </div>
       <div class="result-frame">
         <h2 class="result-title" id="result-title"></h2>
         <p class="result-text" id="result-text"></p>
@@ -108,10 +137,9 @@
       </div>
     </section>
 
-   
     <section class="screen" data-screen="dialogue">
       <div id="dlg-hud" class="dlg-hud">
-        <button class="icon-btn" data-nav="chapters" title="Menu">☰</button>
+        <button class="icon-btn pause-trigger" title="Pause">☰</button>
         <div class="dlg-hud-right">
           <button class="text-btn" id="btn-auto">Auto</button>
           <button class="text-btn" data-simple-screen="history">Hist.</button>
@@ -134,7 +162,7 @@
       </div>
     </section>
 
-    
+
     <section class="screen" data-screen="options">
       <div class="simple-panel">
         <h2 class="section-title small">Options</h2>
@@ -157,6 +185,7 @@
         <label class="option-row">
           Effets sonores <input type="range" id="opt-sfx" min="0" max="1" step="0.1" />
         </label>
+        <button class="back-link" id="btn-reset-save">Réinitialiser la progression</button>
         <button class="back-link" data-nav="menu">‹ Retour</button>
       </div>
     </section>
@@ -186,6 +215,18 @@
     </section>
 
     <div class="toast" id="toast"></div>
+
+
+    <div class="pause-overlay" id="pause-overlay">
+      <div class="pause-panel">
+        <h2 class="section-title small">Pause</h2>
+        <button class="menu-item" id="pause-resume">Reprendre</button>
+        <button class="menu-item" id="pause-back">‹ Revenir en arrière</button>
+        <button class="menu-item" id="pause-save">Sauvegarder</button>
+        <button class="menu-item" id="pause-chapters">Chapitres</button>
+        <button class="menu-item" id="pause-menu">Menu principal</button>
+      </div>
+    </div>
   </div>
 
   <script src="js/data/script.js"></script>
@@ -193,6 +234,7 @@
   <script src="js/engine/dialogue.js"></script>
   <script src="js/engine/mapManager.js"></script>
   <script src="js/engine/progressMap.js"></script>
+  <script src="js/engine/progressionTrail.js"></script>
   <script src="js/engine/sceneManager.js"></script>
   <script src="js/main.js"></script>
 </body>

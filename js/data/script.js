@@ -5,7 +5,9 @@ const GAME_DATA = {
     version: "projet original — v0.1"
   },
 
-
+  // Prologue cinématique : ne s'affiche qu'au tout premier lancement.
+  // Rendu par un écran dédié (voir sceneManager.playPrologue), au ton
+  // délibérément plus sombre et solennel que le reste du jeu.
   prologue: {
     lines: [
       "Avant la vérité, il y a toujours le mensonge.",
@@ -19,13 +21,20 @@ const GAME_DATA = {
   },
 
   chapters: [
-
+      // CHAPITRE I L'ÉVEIL  (Actes I & II du scénario)
+  
     {
       id: 'chap1',
       number: 'I',
       title: "L'Éveil",
       locked: false,
       startScene: 'acte1_decouverte',
+      // Repères narratifs affichés sur la carte de progression (vue "Ma progression")
+      progressPath: [
+        { id: 'acte1_decouverte', label: 'La découverte' },
+        { id: 'carte_acte2', label: "L'enquête de terrain" },
+        { id: 'analyse_etape2', label: 'Le tri des faits' }
+      ],
       scenes: {
 
         acte1_decouverte: {
@@ -56,7 +65,7 @@ const GAME_DATA = {
             { id: 'goemon', label: 'Goemon — Salle informatique', x: 55, y: 40, goto: 'temoin_goemon' },
             { id: 'musashi', label: 'Musashi — Bureau du BDE', x: 80, y: 68, goto: 'temoin_musashi' }
           ],
-
+          // la carte ne passe à la suite que lorsque les 3 points ont été visités
           requireAll: true,
           next: 'analyse_etape2'
         },
@@ -91,7 +100,10 @@ const GAME_DATA = {
           next: 'retour_carte'
         },
 
-        
+        // scène technique invisible : renvoie vers la carte tant que tout n'est pas visité
+        retour_carte: { type: 'map', redirectTo: 'carte_acte2' },
+
+        analyse_etape2: {
           type: 'dialogue',
           background: 'bibliotheque',
           lines: [
@@ -103,8 +115,10 @@ const GAME_DATA = {
           next: 'chap2:acte3_intro',
           unlocks: 'chap2'
         }
-      },
+      }
+    },
 
+    // CHAPITRE II — LE SILENCE  (Acte III du scénario)
 
     {
       id: 'chap2',
@@ -112,6 +126,11 @@ const GAME_DATA = {
       title: 'Le Silence',
       locked: true,
       startScene: 'acte3_intro',
+      progressPath: [
+        { id: 'acte3_intro', label: 'Retour au calme' },
+        { id: 'preuves_acte3', label: 'Analyse technique' },
+        { id: 'analyse_etape3', label: 'Conclusion technique' }
+      ],
       scenes: {
 
         acte3_intro: {
@@ -162,12 +181,21 @@ const GAME_DATA = {
       }
     },
 
+
+    // CHAPITRE III  LA TRAHISON  (Acte IV + Épilogue)
+
     {
       id: 'chap3',
       number: 'III',
       title: 'La Trahison',
       locked: true,
       startScene: 'acte4_intro',
+      progressPath: [
+        { id: 'acte4_intro', label: 'Le tribunal' },
+        { id: 'decision_verdict', label: 'Le verdict' },
+        { id: 'resultat_victoire', label: 'La vérité éclate' },
+        { id: 'epilogue', label: 'Épilogue' }
+      ],
       scenes: {
 
         acte4_intro: {
@@ -238,4 +266,5 @@ const GAME_DATA = {
   ]
 };
 
+// Export global (pas de bundler : chargement via <script> classique)
 window.GAME_DATA = GAME_DATA;
