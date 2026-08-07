@@ -13,6 +13,8 @@ const ProgressMap = (() => {
   function render(chapters, state, onSelect) {
     if (!container) bindDOM();
     container.innerHTML = '';
+
+    // positions le long du chemin tracé en SVG (voir polyline #worldmap-path)
     const positions = [
       { x: 15, y: 72 },
       { x: 50, y: 32 },
