@@ -11,9 +11,9 @@ const SceneManager = (() => {
   }
 
   function showScreen(name) {
-    // La lecture automatique (voix) ne doit vivre que dans l'écran de
-    // dialogue : dès qu'on le quitte (menu, carte, preuves, etc.), on
-    // coupe la voix et les minuteurs en cours.
+    /* La lecture automatique (voix) ne doit vivre que dans l'écran de
+     dialogue : dès qu'on le quitte (menu, carte, preuves, etc.), on
+     coupe la voix et les minuteurs en cours.*/
     if (name !== 'dialogue') {
       DialogueEngine.stop();
     }
@@ -25,6 +25,66 @@ const SceneManager = (() => {
   function setBackground(bgId) {
     const bgEl = document.getElementById('scene-background');
     bgEl.dataset.bg = bgId || 'default';
+    const photo = window.ASSET_BACKGROUNDS && window.ASSET_BACKGROUNDS[bgId];
+    if (photo) {
+      bgEl.style.backgroundImage = `url("${photo}")`;
+      bgEl.classList.add('has-photo');
+    } else {
+      bgEl.style.backgroundImage = '';
+      bgEl.classList.remove('has-photo');
+    }
+  }
+
+
+  /* Mise en scène des personnages (dialogue.js ne connaît pas les
+   personnages : c'est ici qu'on décide qui apparaît, où, et avec
+   quelle pose, à partir de scene.characters + speaker/pose de la
+   ligne en cours.*/
+  function setupCharacterStage(scene) {
+    const slots = { left: document.getElementById('char-slot-left'), right: document.getElementById('char-slot-right') };
+    const imgs = { left: document.getElementById('char-img-left'), right: document.getElementById('char-img-right') };
+
+    // réinitialise les deux emplacements
+    ['left', 'right'].forEach(side => {
+      slots[side].classList.remove('present', 'active', 'inactive');
+      imgs[side].removeAttribute('src');
+    });
+
+    const chars = scene.characters || [];
+    chars.forEach(c => {
+      const side = c.side === 'right' ? 'right' : 'left';
+      const sprites = window.ASSET_CHARACTERS && window.ASSET_CHARACTERS[c.id];
+      const src = sprites ? (sprites.neutre || Object.values(sprites)[0]) : null;
+      slots[side].classList.add('present');
+      slots[side].dataset.characterId = c.id;
+      if (src) {
+        imgs[side].src = src;
+        slots[side].classList.add('has-image');
+      } else {
+        slots[side].classList.remove('has-image');
+      }
+    });
+  }
+
+  function updateCharacterStageForLine(scene, line) {
+    const slots = { left: document.getElementById('char-slot-left'), right: document.getElementById('char-slot-right') };
+    const imgs = { left: document.getElementById('char-img-left'), right: document.getElementById('char-img-right') };
+    const chars = scene.characters || [];
+    if (!chars.length) return;
+
+    chars.forEach(c => {
+      const side = c.side === 'right' ? 'right' : 'left';
+      const isSpeaking = line.speaker === c.id;
+      slots[side].classList.toggle('active', isSpeaking);
+      slots[side].classList.toggle('inactive', chars.length > 1 && !isSpeaking);
+
+      if (isSpeaking) {
+        const sprites = window.ASSET_CHARACTERS && window.ASSET_CHARACTERS[c.id];
+        const poseKey = line.pose || 'neutre';
+        const src = sprites ? (sprites[poseKey] || sprites.neutre) : null;
+        if (src) imgs[side].src = src;
+      }
+    });
   }
 
 
@@ -37,6 +97,7 @@ const SceneManager = (() => {
     ProgressMap.bindDOM();
     ProgressionTrail.bindDOM();
     state = SaveManager.load();
+    I18n.applyStaticUI();
 
     if (!state.hasSeenIntro) {
       playPrologue();
@@ -49,8 +110,7 @@ const SceneManager = (() => {
 
 
   // Prologue cinématique 
-  // depuis le menu via "Revoir le prologue"   machine à écrire 
-  // sombre et solennelle que le reste du jeu.
+  
 
   function playPrologue() {
     showScreen('prologue');
@@ -65,9 +125,79 @@ const SceneManager = (() => {
     let typeTimer = null;
     let waitTimer = null;
 
+    /* Narration audio du prologue 
+     Voix distincte de celle du jeu (dialogue.js) : plus aiguë, un peu
+     plus lente, et on essaie explicitement une voix féminine si le
+     navigateur en propose plusieurs en français. Toujours active,
+     indépendamment de l'option "Lecture automatique" (c'est une
+     narration cinématique, pas une réplique de personnage).*/
+    let prologueVoice = null;
+    let voicePicked = false;
+    let speechToken = 0;
+    let speakDelayTimer = null;
+    let keepAliveTimer = null;
+
+    function pickProlgueVoice() {
+      if (voicePicked || !('speechSynthesis' in window)) return;
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices.length) return; // pas encore chargées, on réessaiera
+      voicePicked = true;
+      const french = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('fr'));
+      prologueVoice = french.find(v => /femme|female|amelie|amélie|audrey|marie|julie|celine|léa|lea/i.test(v.name))
+        || french.find((v, idx) => idx > 0) // à défaut, une voix différente de la première (souvent celle du jeu)
+        || french[0]
+        || null;
+    }
+    pickProlgueVoice();
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.addEventListener
+        ? window.speechSynthesis.addEventListener('voiceschanged', pickProlgueVoice)
+        : (window.speechSynthesis.onvoiceschanged = pickProlgueVoice);
+    }
+
+    function startKeepAlive() {
+      stopKeepAlive();
+      keepAliveTimer = setInterval(() => {
+        if (!window.speechSynthesis.speaking) { stopKeepAlive(); return; }
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }, 4000);
+    }
+    function stopKeepAlive() {
+      if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
+    }
+
+    function stopPrologueSpeech() {
+      speechToken++; // invalide tout speak()/onend encore en vol (skip rapide)
+      clearTimeout(speakDelayTimer);
+      speakDelayTimer = null;
+      stopKeepAlive();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    }
+
+    function speakLine(text) {
+      if (!('speechSynthesis' in window)) return;
+      stopPrologueSpeech();
+      const myToken = speechToken; // stopPrologueSpeech vient d'incrémenter
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'fr-FR';
+      if (prologueVoice) utter.voice = prologueVoice;
+      utter.pitch = 1.12;
+      utter.rate = 0.82;
+      utter.onend = () => { if (myToken === speechToken) stopKeepAlive(); };
+      utter.onerror = () => { if (myToken === speechToken) stopKeepAlive(); };
+      startKeepAlive();
+      speakDelayTimer = setTimeout(() => {
+        speakDelayTimer = null;
+        if (myToken !== speechToken) return; // ligne dépassée entre-temps
+        window.speechSynthesis.speak(utter);
+      }, 30);
+    }
+
     function endPrologue() {
       clearTimeout(typeTimer);
       clearTimeout(waitTimer);
+      stopPrologueSpeech();
       state.hasSeenIntro = true;
       SaveManager.save(state);
       screenEl.removeEventListener('click', advanceStep);
@@ -75,10 +205,12 @@ const SceneManager = (() => {
       showMenu();
     }
 
-    function typeLine(text) {
+    function typeLine(rawText) {
+      const text = window.I18n ? I18n.text(rawText) : rawText;
       typing = true;
       lineEl.classList.add('visible');
       lineEl.textContent = '';
+      speakLine(text);
       let c = 0;
       function tick() {
         if (!typing) return;
@@ -122,11 +254,12 @@ const SceneManager = (() => {
         // premier clic pendant la frappe : affiche la ligne en entier
         typing = false;
         clearTimeout(typeTimer);
-        lineEl.textContent = lines[i];
+        lineEl.textContent = window.I18n ? I18n.text(lines[i]) : lines[i];
         clearTimeout(waitTimer);
         waitTimer = setTimeout(() => advanceStep(), 1200);
         return;
       }
+      stopPrologueSpeech(); // on quitte cette ligne : coupe la voix avant la suivante
       clearTimeout(waitTimer);
       i++;
       showStep();
@@ -162,11 +295,12 @@ const SceneManager = (() => {
 
     window.GAME_DATA.chapters.forEach(chapter => {
       const unlocked = state.unlockedChapters.includes(chapter.id);
+      const title = window.I18n ? I18n.text(chapter.title) : chapter.title;
       const card = document.createElement('button');
       card.className = 'chapter-card' + (unlocked ? '' : ' locked');
       card.innerHTML = `
         <div class="chapter-number">${chapter.number}</div>
-        <div class="chapter-title">${chapter.title}</div>
+        <div class="chapter-title">${title}</div>
         ${unlocked ? '' : '<div class="chapter-lock">🔒</div>'}
       `;
       if (unlocked) {
@@ -192,9 +326,9 @@ const SceneManager = (() => {
     SaveManager.save(state);
   }
 
-  // Résolution générique d'une scène (dialogue / map / evidence / etc.)
-  // opts.skipHistory : ne pousse pas la scène quittée dans l'historique
-  // (utilisé par goBack() pour éviter les allers-retours en boucle)
+  /* Résolution générique d'une scène (dialogue / map / evidence / etc.)
+   opts.skipHistory : ne pousse pas la scène quittée dans l'historique
+  (utilisé par goBack() pour éviter les allers-retours en boucle)*/
 
   function playScene(chapterId, sceneId, opts = {}) {
     const chapter = getChapter(chapterId);
@@ -266,7 +400,12 @@ const SceneManager = (() => {
     showScreen('dialogue');
     setBackground(scene.background);
     document.getElementById('dlg-hud').style.visibility = 'visible';
-    DialogueEngine.start(scene.lines, () => goNext(chapterId, scene));
+    setupCharacterStage(scene);
+    DialogueEngine.start(
+      scene.lines,
+      () => goNext(chapterId, scene),
+      (line) => updateCharacterStageForLine(scene, line)
+    );
   }
 
   //  Carte / enquête 
@@ -301,23 +440,24 @@ const SceneManager = (() => {
   function renderEvidence(chapterId, scene) {
     showScreen('evidence');
     setBackground(scene.background);
-    document.getElementById('evidence-intro').textContent = scene.intro || '';
+    document.getElementById('evidence-intro').textContent = window.I18n ? I18n.text(scene.intro) : (scene.intro || '');
 
     const list = document.getElementById('evidence-list');
     const detailBox = document.getElementById('evidence-detail');
     list.innerHTML = '';
-    detailBox.textContent = 'Sélectionne une preuve à examiner.';
+    detailBox.textContent = I18n.t('evidence_placeholder');
     const examined = new Set();
 
     scene.items.forEach(item => {
       const btn = document.createElement('button');
       btn.className = 'evidence-item';
-      btn.textContent = item.label;
+      btn.textContent = I18n.text(item.label);
       btn.addEventListener('click', () => {
-        detailBox.textContent = item.detail;
+        detailBox.textContent = I18n.text(item.detail);
         btn.classList.add('examined');
         examined.add(item.id);
         continueBtn.classList.toggle('visible', examined.size === scene.items.length);
+        setBackground(item.background || scene.background);
       });
       list.appendChild(btn);
     });
@@ -331,14 +471,14 @@ const SceneManager = (() => {
   function renderDecision(chapterId, scene) {
     showScreen('decision');
     setBackground(scene.background);
-    document.getElementById('decision-prompt').textContent = scene.prompt;
+    document.getElementById('decision-prompt').textContent = I18n.text(scene.prompt);
 
     const list = document.getElementById('decision-choices');
     list.innerHTML = '';
     scene.choices.forEach(choice => {
       const btn = document.createElement('button');
       btn.className = 'decision-choice';
-      btn.textContent = choice.label;
+      btn.textContent = I18n.text(choice.label);
       btn.addEventListener('click', () => playScene(chapterId, choice.goto));
       list.appendChild(btn);
     });
@@ -348,11 +488,11 @@ const SceneManager = (() => {
   function renderResult(chapterId, scene) {
     showScreen('result');
     setBackground(scene.background);
-    document.getElementById('result-title').textContent = scene.title;
-    document.getElementById('result-text').textContent = scene.text;
+    document.getElementById('result-title').textContent = I18n.text(scene.title);
+    document.getElementById('result-text').textContent = I18n.text(scene.text);
 
     const btn = document.getElementById('result-continue');
-    btn.textContent = scene.next ? 'Continuer' : 'Retour aux chapitres';
+    btn.textContent = scene.next ? I18n.t('result_continue') : I18n.t('result_back_chapters');
     btn.onclick = () => goNext(chapterId, scene);
   }
 
@@ -424,7 +564,7 @@ const SceneManager = (() => {
 
     document.getElementById('btn-save').addEventListener('click', () => {
       SaveManager.save(state);
-      flashToast('Partie sauvegardée.');
+      flashToast(I18n.t('toast_saved'));
     });
 
     document.querySelectorAll('[data-nav]').forEach(el => {
@@ -454,7 +594,7 @@ const SceneManager = (() => {
     document.getElementById('pause-back').addEventListener('click', goBack);
     document.getElementById('pause-save').addEventListener('click', () => {
       SaveManager.save(state);
-      flashToast('Partie sauvegardée.');
+      flashToast(I18n.t('toast_saved'));
       closePause();
     });
     document.getElementById('pause-chapters').addEventListener('click', () => {
@@ -481,7 +621,7 @@ const SceneManager = (() => {
       playPrologue();
     });
     document.getElementById('btn-quitter').addEventListener('click', () => {
-      flashToast("Merci d'avoir joué à Ombres d'Encre.");
+      flashToast(I18n.t('toast_quit'));
     });
 
     // Options : vitesse du texte, volumes, lecture automatique
@@ -509,11 +649,35 @@ const SceneManager = (() => {
       DialogueEngine.setAutoRead(autoReadCheckbox.checked);
     });
 
+    /* Langue (Français / English) : pas de rechargement de page, tout se
+     retraduit en direct au prochain rendu (les écrans dynamiques lisent
+     I18n à chaque affichage) ; on ne force que les libellés statiques.*/
+    const langButtons = { fr: document.getElementById('lang-fr'), en: document.getElementById('lang-en') };
+    function refreshLangButtons() {
+      const current = I18n.getLang();
+      langButtons.fr.classList.toggle('active', current === 'fr');
+      langButtons.en.classList.toggle('active', current === 'en');
+    }
+    refreshLangButtons();
+    Object.entries(langButtons).forEach(([lang, btn]) => {
+      btn.addEventListener('click', () => {
+        if (I18n.getLang() === lang) return;
+        I18n.setLang(lang);
+        refreshLangButtons();
+        I18n.applyStaticUI();
+        /* réaffiche l'écran courant pour que son contenu dynamique (s'il y en a) 
+         bascule immédiatement dans la nouvelle langue*/
+        const current = document.getElementById('app').dataset.currentScreen;
+        if (current === 'chapters') showChapterSelect();
+        if (current === 'worldmap') switchMapTab(document.getElementById('tab-progression').classList.contains('active') ? 'progression' : 'scenario');
+      });
+    });
+
     const resetBtn = document.getElementById('btn-reset-save');
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
         SaveManager.reset();
-        flashToast('Progression réinitialisée. Rechargez la page.');
+        flashToast(I18n.t('toast_reset'));
       });
     }
 

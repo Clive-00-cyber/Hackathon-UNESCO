@@ -26,6 +26,7 @@ const ProgressMap = (() => {
       const unlocked = state.unlockedChapters.includes(chapter.id);
       const completed = state.completedChapters.includes(chapter.id);
       const isCurrent = unlocked && !completed;
+      const title = window.I18n ? I18n.text(chapter.title) : chapter.title;
 
       const node = document.createElement('button');
       node.className = 'worldmap-node' +
@@ -34,11 +35,11 @@ const ProgressMap = (() => {
         (!unlocked ? ' locked' : '');
       node.style.left = pos.x + '%';
       node.style.top = pos.y + '%';
-      node.setAttribute('aria-label', chapter.title);
+      node.setAttribute('aria-label', title);
       node.innerHTML = `
         <span class="worldmap-node-ring"></span>
         <span class="worldmap-node-number">${completed ? '✓' : (unlocked ? chapter.number : '🔒')}</span>
-        <span class="worldmap-node-title">${chapter.title}</span>
+        <span class="worldmap-node-title">${title}</span>
       `;
       if (unlocked) {
         node.addEventListener('click', () => onSelect(chapter.id));
@@ -49,7 +50,8 @@ const ProgressMap = (() => {
     const legend = document.getElementById('worldmap-legend');
     if (legend) {
       const doneCount = state.completedChapters.length;
-      legend.textContent = `${doneCount} / ${chapters.length} chapitres achevés`;
+      const suffix = window.I18n && I18n.getLang() === 'en' ? 'chapters completed' : 'chapitres achevés';
+      legend.textContent = `${doneCount} / ${chapters.length} ${suffix}`;
     }
   }
 
