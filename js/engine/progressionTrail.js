@@ -22,7 +22,9 @@ const ProgressionTrail = (() => {
 
       const heading = document.createElement('div');
       heading.className = 'trail-chapter-heading';
-      heading.textContent = `Chapitre ${chapter.number} — ${chapter.title}`;
+      const chapTitle = window.I18n ? I18n.text(chapter.title) : chapter.title;
+      const chapWord = window.I18n ? I18n.t('trail_progress_label') : 'Chapitre';
+      heading.textContent = `${chapWord} ${chapter.number} — ${chapTitle}`;
       container.appendChild(heading);
 
       // index du dernier repère visité dans CE chapitre (progression courante)
@@ -50,9 +52,10 @@ const ProgressionTrail = (() => {
         const node = document.createElement('button');
         node.className = `trail-node ${status} ${i % 2 === 0 ? 'align-left' : 'align-right'}`;
         const icon = status === 'done' ? '✓' : status === 'locked' ? '🔒' : (i + 1);
+        const label = window.I18n ? I18n.text(step.label) : step.label;
         node.innerHTML = `
           <span class="trail-node-bubble">${icon}</span>
-          <span class="trail-node-label">${step.label}</span>
+          <span class="trail-node-label">${label}</span>
         `;
         if (status === 'done' || status === 'current') {
           node.addEventListener('click', () => onSelect(chapter.id, step.id));

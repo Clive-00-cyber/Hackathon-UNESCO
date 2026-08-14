@@ -15,15 +15,16 @@ const MapManager = (() => {
     if (!container) bindDOM();
     container.innerHTML = '';
 
-    document.getElementById('map-intro').textContent = scene.intro || '';
+    document.getElementById('map-intro').textContent = window.I18n ? I18n.text(scene.intro) : (scene.intro || '');
 
     scene.points.forEach(point => {
+      const label = window.I18n ? I18n.text(point.label) : point.label;
       const btn = document.createElement('button');
       btn.className = 'map-point' + (visited.has(point.id) ? ' visited' : '');
       btn.style.left = point.x + '%';
       btn.style.top = point.y + '%';
-      btn.setAttribute('aria-label', point.label);
-      btn.innerHTML = `<span class="map-point-dot"></span><span class="map-point-label">${point.label}</span>`;
+      btn.setAttribute('aria-label', label);
+      btn.innerHTML = `<span class="map-point-dot"></span><span class="map-point-label">${label}</span>`;
       btn.addEventListener('click', () => onPointClick(point));
       container.appendChild(btn);
     });

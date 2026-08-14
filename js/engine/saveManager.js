@@ -15,7 +15,8 @@ const SaveManager = (() => {
     textSpeed: 'normal',   // 'lent' | 'normal' | 'rapide'
     musicVolume: 0.6,
     sfxVolume: 0.8,
-    autoRead: false        // lecture automatique à voix haute (Web Speech API)
+    autoRead: false,       // lecture automatique à voix haute (Web Speech API)
+    language: 'fr'         // 'fr' | 'en'
   });
 
   function load() {

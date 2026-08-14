@@ -5,14 +5,15 @@ const DialogueEngine = (() => {
   let typeTimer = null;
   let autoAdvanceTimer = null;
   let onComplete = null;
+  let onLineChange = null;
 
   // vitesse d'affichage du texte, en ms par caractère (mode manuel)
   const SPEEDS = { lent: 45, normal: 24, rapide: 10 };
   const AUTO_PAUSE_MS = 900; // pause entre deux lignes en mode automatique
   const FALLBACK_MS_PER_CHAR = 55; // si la synthèse vocale est indisponible
 
-  // Réglages de la voix : plus grave et plus lente = plus pesante / intrigante,
-  // que la voix disponible soit masculine ou féminine.
+  /* Réglages de la voix : plus grave et plus lente = plus pesante / intrigante,
+  que la voix disponible soit masculine ou féminine. */
   const VOICE_PITCH = 0.82;
   const VOICE_RATE = 0.87;
 
@@ -31,9 +32,9 @@ const DialogueEngine = (() => {
       const pickVoice = () => {
         const voices = window.speechSynthesis.getVoices();
         const frenchVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('fr'));
-        // Heuristique simple : on préfère un nom qui laisse deviner un
-        // registre plus grave/posé si plusieurs voix françaises existent ;
-        // à défaut, la première voix française disponible.
+        /* Heuristique simple : on préfère un nom qui laisse deviner un
+         registre plus grave/posé si plusieurs voix françaises existent ;
+         à défaut, la première voix française disponible.*/
         frenchVoice = frenchVoices.find(v => /thomas|paul|male|homme/i.test(v.name))
           || frenchVoices[0]
           || null;
@@ -77,11 +78,12 @@ const DialogueEngine = (() => {
     els.autoBtn.classList.toggle('active', isAutoReadEnabled());
   }
 
-  function start(lineList, completeCallback) {
+  function start(lineList, completeCallback, lineChangeCallback) {
     if (!els.text) bindDOM();
     lines = lineList || [];
     index = 0;
     onComplete = completeCallback || null;
+    onLineChange = lineChangeCallback || null;
     refreshAutoBtn();
     renderLine();
   }
@@ -102,17 +104,21 @@ const DialogueEngine = (() => {
     }
     const line = lines[index];
 
-    if (line.who) {
+    if (onLineChange) onLineChange(line, index);
+
+    const who = window.I18n ? I18n.text(line.who) : line.who;
+    if (who) {
       els.nameBox.style.visibility = 'visible';
-      els.nameTag.textContent = line.who;
+      els.nameTag.textContent = who;
     } else {
       els.nameBox.style.visibility = 'hidden';
     }
 
+    const lineText = window.I18n ? I18n.text(line.text) : line.text;
     if (isAutoReadEnabled()) {
-      playAutoLine(line.text);
+      playAutoLine(lineText);
     } else {
-      typeText(line.text);
+      typeText(lineText);
     }
   }
 
@@ -143,13 +149,18 @@ const DialogueEngine = (() => {
     els.advanceHint.style.opacity = '1';
   }
 
-  // ---- Mode automatique : voix + enchaînement seul ----------------
+  //  Mode automatique : voix + enchaînement seul 
+  let speechToken = 0;   // incrémenté à chaque nouvelle ligne ou arrêt :
+                          // invalide tout speak()/onend en vol venant d'avant
+  let speakDelayTimer = null;
+
   function playAutoLine(fullText) {
     typing = false;
     els.text.textContent = fullText;
     els.advanceHint.style.opacity = '1';
     els.advanceHint.classList.add('listening');
 
+    const myToken = ++speechToken;
     const canSpeak = 'speechSynthesis' in window;
     if (canSpeak) {
       window.speechSynthesis.cancel();
@@ -158,14 +169,52 @@ const DialogueEngine = (() => {
       if (frenchVoice) utter.voice = frenchVoice;
       utter.pitch = VOICE_PITCH;
       utter.rate = VOICE_RATE;
-      utter.onend = () => scheduleAutoAdvance();
-      utter.onerror = () => scheduleAutoAdvance();
-      window.speechSynthesis.speak(utter);
+      utter.onend = () => {
+        if (myToken !== speechToken) return; // ligne dépassée entre-temps (skip)
+        stopKeepAlive();
+        scheduleAutoAdvance();
+      };
+      utter.onerror = () => {
+        if (myToken !== speechToken) return;
+        stopKeepAlive();
+        scheduleAutoAdvance();
+      };
+      /* Contournement d'un bug connu des navigateurs Chromium : la synthèse
+       vocale se coupe silencieusement après ~15s sans jamais déclencher
+       "onend", surtout sur les répliques longues. En mettant en pause puis
+      en reprenant régulièrement, on empêche le moteur de s'endormir.*/
+      startKeepAlive();
+      /* léger délai avant de lancer : évite un conflit avec le cancel() qui
+       précède, qui peut lui aussi faire taire l'utterance suivante trop tôt.
+       Le jeton (myToken) garantit que si le joueur a déjà "skip" cette
+       ligne avant que ce délai n'expire, ce speak() ne partira jamais.*/
+      clearTimeout(speakDelayTimer);
+      speakDelayTimer = setTimeout(() => {
+        speakDelayTimer = null;
+        if (myToken !== speechToken) return;
+        window.speechSynthesis.speak(utter);
+      }, 30);
     } else {
       // pas de synthèse vocale disponible : on estime un temps de lecture
       const estimated = Math.max(1200, fullText.length * FALLBACK_MS_PER_CHAR);
-      autoAdvanceTimer = setTimeout(() => scheduleAutoAdvance(), estimated);
+      autoAdvanceTimer = setTimeout(() => {
+        if (myToken !== speechToken) return;
+        scheduleAutoAdvance();
+      }, estimated);
     }
+  }
+
+  let keepAliveTimer = null;
+  function startKeepAlive() {
+    stopKeepAlive();
+    keepAliveTimer = setInterval(() => {
+      if (!window.speechSynthesis.speaking) { stopKeepAlive(); return; }
+      window.speechSynthesis.pause();
+      window.speechSynthesis.resume();
+    }, 4000);
+  }
+  function stopKeepAlive() {
+    if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
   }
 
   function scheduleAutoAdvance() {
@@ -177,6 +226,10 @@ const DialogueEngine = (() => {
   }
 
   function stopSpeech() {
+    speechToken++; // invalide tout speak()/onend/estimation encore en vol
+    clearTimeout(speakDelayTimer);
+    speakDelayTimer = null;
+    stopKeepAlive();
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   }
 
@@ -192,7 +245,7 @@ const DialogueEngine = (() => {
     }
     if (typing) {
       typing = false;
-      els.text.textContent = lines[index].text;
+      els.text.textContent = window.I18n ? I18n.text(lines[index].text) : lines[index].text;
       els.advanceHint.style.opacity = '1';
       return;
     }
@@ -210,10 +263,10 @@ const DialogueEngine = (() => {
     stopSpeech();
   }
 
-  // Appelée à la reprise après une pause : en mode manuel, il n'y a rien
-  // à relancer (le clic suivant reprend naturellement) ; en mode lecture
-  // automatique, on rejoue la ligne en cours pour ne pas laisser le
-  // joueur bloqué en silence.
+  /* Appelée à la reprise après une pause : en mode manuel, il n'y a rien
+   à relancer (le clic suivant reprend naturellement) ; en mode lecture
+   automatique, on rejoue la ligne en cours pour ne pas laisser le
+   joueur bloqué en silence.*/
   function resume() {
     if (isAutoReadEnabled() && lines.length && index < lines.length) {
       renderLine();
