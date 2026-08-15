@@ -10,16 +10,25 @@ const SceneManager = (() => {
     });
   }
 
+  const SCREEN_MOOD = {
+    menu: 'menu', chapters: 'menu', worldmap: 'menu', options: 'menu',
+    galerie: 'menu', credits: 'menu', history: 'menu',
+    dialogue: 'investigation', map: 'investigation', evidence: 'investigation',
+    decision: 'tension', prologue: 'tension',
+    result: 'result'
+  };
+
   function showScreen(name) {
-    /* La lecture automatique (voix) ne doit vivre que dans l'écran de
-     dialogue : dès qu'on le quitte (menu, carte, preuves, etc.), on
-     coupe la voix et les minuteurs en cours.*/
+    // La lecture automatique (voix) ne doit vivre que dans l'écran de
+    // dialogue : dès qu'on le quitte (menu, carte, preuves, etc.), on
+    // coupe la voix et les minuteurs en cours.
     if (name !== 'dialogue') {
       DialogueEngine.stop();
     }
     Object.values(screens).forEach(el => el.classList.remove('active'));
     if (screens[name]) screens[name].classList.add('active');
     document.getElementById('app').dataset.currentScreen = name;
+    if (window.AudioManager) AudioManager.playMood(SCREEN_MOOD[name] || 'menu');
   }
 
   function setBackground(bgId) {
@@ -35,11 +44,6 @@ const SceneManager = (() => {
     }
   }
 
-
-  /* Mise en scène des personnages (dialogue.js ne connaît pas les
-   personnages : c'est ici qu'on décide qui apparaît, où, et avec
-   quelle pose, à partir de scene.characters + speaker/pose de la
-   ligne en cours.*/
   function setupCharacterStage(scene) {
     const slots = { left: document.getElementById('char-slot-left'), right: document.getElementById('char-slot-right') };
     const imgs = { left: document.getElementById('char-img-left'), right: document.getElementById('char-img-right') };
@@ -98,6 +102,7 @@ const SceneManager = (() => {
     ProgressionTrail.bindDOM();
     state = SaveManager.load();
     I18n.applyStaticUI();
+    if (window.AudioManager) AudioManager.init();
 
     if (!state.hasSeenIntro) {
       playPrologue();
@@ -107,10 +112,6 @@ const SceneManager = (() => {
 
     bindGlobalControls();
   }
-
-
-  // Prologue cinématique 
-  
 
   function playPrologue() {
     showScreen('prologue');
@@ -125,12 +126,7 @@ const SceneManager = (() => {
     let typeTimer = null;
     let waitTimer = null;
 
-    /* Narration audio du prologue 
-     Voix distincte de celle du jeu (dialogue.js) : plus aiguë, un peu
-     plus lente, et on essaie explicitement une voix féminine si le
-     navigateur en propose plusieurs en français. Toujours active,
-     indépendamment de l'option "Lecture automatique" (c'est une
-     narration cinématique, pas une réplique de personnage).*/
+
     let prologueVoice = null;
     let voicePicked = false;
     let speechToken = 0;
@@ -168,7 +164,7 @@ const SceneManager = (() => {
     }
 
     function stopPrologueSpeech() {
-      speechToken++; // invalide tout speak()/onend encore en vol (skip rapide)
+      speechToken++;
       clearTimeout(speakDelayTimer);
       speakDelayTimer = null;
       stopKeepAlive();
@@ -178,7 +174,7 @@ const SceneManager = (() => {
     function speakLine(text) {
       if (!('speechSynthesis' in window)) return;
       stopPrologueSpeech();
-      const myToken = speechToken; // stopPrologueSpeech vient d'incrémenter
+      const myToken = speechToken;
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'fr-FR';
       if (prologueVoice) utter.voice = prologueVoice;
@@ -189,7 +185,7 @@ const SceneManager = (() => {
       startKeepAlive();
       speakDelayTimer = setTimeout(() => {
         speakDelayTimer = null;
-        if (myToken !== speechToken) return; // ligne dépassée entre-temps
+        if (myToken !== speechToken) return; 
         window.speechSynthesis.speak(utter);
       }, 30);
     }
@@ -251,7 +247,7 @@ const SceneManager = (() => {
     function advanceStep(e) {
       if (e && e.target && e.target.id === 'btn-skip-prologue') return; // géré séparément
       if (typing) {
-        // premier clic pendant la frappe : affiche la ligne en entier
+  
         typing = false;
         clearTimeout(typeTimer);
         lineEl.textContent = window.I18n ? I18n.text(lines[i]) : lines[i];
@@ -259,7 +255,7 @@ const SceneManager = (() => {
         waitTimer = setTimeout(() => advanceStep(), 1200);
         return;
       }
-      stopPrologueSpeech(); // on quitte cette ligne : coupe la voix avant la suivante
+      stopPrologueSpeech(); 
       clearTimeout(waitTimer);
       i++;
       showStep();
@@ -326,9 +322,6 @@ const SceneManager = (() => {
     SaveManager.save(state);
   }
 
-  /* Résolution générique d'une scène (dialogue / map / evidence / etc.)
-   opts.skipHistory : ne pousse pas la scène quittée dans l'historique
-  (utilisé par goBack() pour éviter les allers-retours en boucle)*/
 
   function playScene(chapterId, sceneId, opts = {}) {
     const chapter = getChapter(chapterId);
@@ -339,7 +332,7 @@ const SceneManager = (() => {
       return;
     }
 
-    // redirection technique (utilisée par la carte pour revenir sur elle-même)
+    
     if (scene.redirectTo) {
       playScene(chapterId, scene.redirectTo, opts);
       return;
@@ -366,7 +359,7 @@ const SceneManager = (() => {
     }
   }
 
-  // Retour à la scène précédente (bouton "‹" ou pause > Revenir en arrière)
+
   function goBack() {
     closePause();
     if (history.length > 0) {
@@ -436,7 +429,6 @@ const SceneManager = (() => {
     continueBtn.onclick = () => goNext(chapterId, scene);
   }
 
-  //  Analyse de preuves 
   function renderEvidence(chapterId, scene) {
     showScreen('evidence');
     setBackground(scene.background);
@@ -533,6 +525,7 @@ const SceneManager = (() => {
     if (pauseOpen) return;
     pauseOpen = true;
     DialogueEngine.stop(); // coupe la voix pendant la pause
+    if (window.AudioManager) AudioManager.duck(true);
     document.getElementById('pause-overlay').classList.add('visible');
   }
 
@@ -540,6 +533,7 @@ const SceneManager = (() => {
   function closePause() {
     if (!pauseOpen) return;
     pauseOpen = false;
+    if (window.AudioManager) AudioManager.duck(false);
     document.getElementById('pause-overlay').classList.remove('visible');
     // en mode lecture automatique, on relance la ligne de dialogue en cours
     if (document.getElementById('app').dataset.currentScreen === 'dialogue') {
@@ -645,13 +639,14 @@ const SceneManager = (() => {
         });
       });
     });
+    musicRange.addEventListener('input', () => {
+      if (window.AudioManager) AudioManager.setVolume(parseFloat(musicRange.value));
+    });
     autoReadCheckbox.addEventListener('change', () => {
       DialogueEngine.setAutoRead(autoReadCheckbox.checked);
     });
 
-    /* Langue (Français / English) : pas de rechargement de page, tout se
-     retraduit en direct au prochain rendu (les écrans dynamiques lisent
-     I18n à chaque affichage) ; on ne force que les libellés statiques.*/
+
     const langButtons = { fr: document.getElementById('lang-fr'), en: document.getElementById('lang-en') };
     function refreshLangButtons() {
       const current = I18n.getLang();
@@ -665,8 +660,7 @@ const SceneManager = (() => {
         I18n.setLang(lang);
         refreshLangButtons();
         I18n.applyStaticUI();
-        /* réaffiche l'écran courant pour que son contenu dynamique (s'il y en a) 
-         bascule immédiatement dans la nouvelle langue*/
+    
         const current = document.getElementById('app').dataset.currentScreen;
         if (current === 'chapters') showChapterSelect();
         if (current === 'worldmap') switchMapTab(document.getElementById('tab-progression').classList.contains('active') ? 'progression' : 'scenario');

@@ -1,16 +1,3 @@
-/*
-  test_dialogue_engine.js — Vérification automatisée des bugs de voix
-  Simule window.speechSynthesis pour observer précisément les appels
-  speak()/cancel() de dialogue.js, sans navigateur. Deux scénarios :
- 
-   Test A — le joueur met en pause / change d'écran juste après le
-            déclenchement d'une ligne : aucune voix ne doit démarrer
-            après stop().
-   Test B — le joueur fait plusieurs "skip" rapides pendant la lecture
-            automatique : seule la DERNIÈRE ligne visée doit
-            effectivement atteindre la synthèse vocale, sans fragments
-            de lignes précédentes.
- */
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -31,6 +18,25 @@ function buildSandbox() {
   const elements = {};
   ['dlg-name', 'dlg-name-box', 'dlg-text', 'dialogue-box', 'dlg-advance-hint', 'btn-auto']
     .forEach(id => elements[id] = makeElement());
+
+
+  const audioLog = [];
+  const audioEl = {
+    _src: '', _endTimer: null, _shouldFail: false,
+    onended: null, onerror: null, currentTime: 0,
+    set src(v) { this._src = v; audioLog.push({ type: 'src', value: v }); },
+    get src() { return this._src; },
+    pause() { clearTimeout(this._endTimer); audioLog.push({ type: 'pause' }); },
+    play() {
+      audioLog.push({ type: 'play', src: this._src });
+      return new Promise((resolve, reject) => {
+        if (this._shouldFail) { reject(new Error('simulated failure')); return; }
+        resolve();
+        this._endTimer = setTimeout(() => { if (this.onended) this.onended(); }, 150);
+      });
+    },
+  };
+  elements['dlg-voice-audio'] = audioEl;
 
   const speechLog = [];
   let currentUtter = null;
@@ -69,7 +75,6 @@ function buildSandbox() {
         speechLog.push({ type: 'speak', text: utter.text, at: Date.now() });
         currentUtter = utter;
         this.speaking = true;
-        // simule une lecture de 150ms avant "onend" naturel
         currentTimer = setTimeout(() => {
           if (currentUtter === utter) {
             this.speaking = false;
@@ -92,7 +97,7 @@ function buildSandbox() {
   const code = fs.readFileSync(path.join(__dirname, 'js/engine/dialogue.js'), 'utf8');
   vm.runInContext(code, sandbox, { filename: 'dialogue.js' });
 
-  return { sandbox, speechLog, setAutoRead: (v) => { autoReadEnabled = v; } };
+  return { sandbox, speechLog, audioLog, audioEl, setAutoRead: (v) => { autoReadEnabled = v; } };
 }
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -102,8 +107,7 @@ async function testStopCancelsPendingSpeak() {
   const DialogueEngine = sandbox.window.DialogueEngine;
   const lines = [{ who: 'A', text: 'Ligne un' }, { who: 'B', text: 'Ligne deux' }];
   DialogueEngine.start(lines, () => {}, () => {});
-  // stop() immédiatement : avant même que le setTimeout(30ms) interne
-  // n'ait eu le temps de déclencher le vrai speak()
+
   DialogueEngine.stop();
   await wait(250);
   const speaks = speechLog.filter(e => e.type === 'speak');
@@ -122,25 +126,51 @@ async function testRapidSkipNoFragmentation() {
   ];
   let completed = false;
   DialogueEngine.start(lines, () => { completed = true; }, () => {});
-  // skips plus rapides que le délai interne (30ms) et que la fin simulée (150ms)
   DialogueEngine.advance();
   await wait(10);
   DialogueEngine.advance();
   await wait(10);
   DialogueEngine.advance();
-  await wait(1200); // laisse la dernière ligne se terminer + le délai d'enchaînement (900ms) avant onComplete
-  const speaks = speechLog.filter(e => e.type === 'speak');
+  await wait(1200); 
   console.log('Test B — textes réellement passés à speak() :', speaks.map(s => s.text));
   const last = speaks[speaks.length - 1];
   const onlyOneReachedEngine = speaks.length === 1; // les 3 premières doivent être annulées avant de parler
   return last && last.text === 'Ligne quatre' && completed && onlyOneReachedEngine;
 }
 
+async function testRealAudioPlaysAndAdvances() {
+  const { sandbox, audioLog } = buildSandbox();
+  const DialogueEngine = sandbox.window.DialogueEngine;
+  const lines = [{ who: 'Kirito', text: 'Ligne un', audio: 'assets/audio/characters/kirito/test1.mp3' }];
+  let completed = false;
+  DialogueEngine.start(lines, () => { completed = true; }, () => {});
+  await wait(400); 
+  const plays = audioLog.filter(e => e.type === 'play');
+  console.log('Test C — fichier(s) réellement joué(s) :', plays.map(p => p.src));
+  return plays.length === 1 && plays[0].src === 'assets/audio/characters/kirito/test1.mp3';
+}
+
+async function testAudioErrorFallsBackToTTS() {
+  const { sandbox, audioEl, speechLog } = buildSandbox();
+  audioEl._shouldFail = true; 
+  const DialogueEngine = sandbox.window.DialogueEngine;
+  const lines = [{ who: 'Kirito', text: 'Ligne de secours', audio: 'assets/audio/characters/kirito/absent.mp3' }];
+  DialogueEngine.start(lines, () => {}, () => {});
+  await wait(200);
+  const speaks = speechLog.filter(e => e.type === 'speak');
+  console.log('Test D — repli sur la synthèse vocale après échec du fichier :', speaks.map(s => s.text));
+  return speaks.length === 1 && speaks[0].text === 'Ligne de secours';
+}
+
 (async () => {
   const a = await testStopCancelsPendingSpeak();
   const b = await testRapidSkipNoFragmentation();
+  const c = await testRealAudioPlaysAndAdvances();
+  const d = await testAudioErrorFallsBackToTTS();
   console.log('\n=== RÉSULTATS ===');
   console.log('Test A (pause/changement d\'écran ne laisse plus de voix fantôme) :', a ? 'PASS ✅' : 'FAIL ❌');
   console.log('Test B (skip rapide ne fragmente plus la lecture) :', b ? 'PASS ✅' : 'FAIL ❌');
-  process.exit(a && b ? 0 : 1);
+  console.log('Test C (fichier audio réel joué et avance bien) :', c ? 'PASS ✅' : 'FAIL ❌');
+  console.log('Test D (repli sur la voix de synthèse si fichier en échec) :', d ? 'PASS ✅' : 'FAIL ❌');
+  process.exit(a && b && c && d ? 0 : 1);
 })();
