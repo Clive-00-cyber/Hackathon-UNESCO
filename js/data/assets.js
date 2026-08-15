@@ -1,7 +1,7 @@
 const ASSET_BACKGROUNDS = {
   bibliotheque: "assets/images/backgrounds/processed/bibliotheque_de_l'universite.png",
   couloir: "assets/images/backgrounds/processed/couloir_de_l'universite.png",
-.
+
   salle_info: "assets/images/backgrounds/processed/image_de_l'interface_discord_de_kirito.png",
 
   bureau_bde: 'assets/images/backgrounds/processed/bureau_du_directeur_vue_moins_zoomer.png',
@@ -31,7 +31,8 @@ const ASSET_BACKGROUNDS = {
   // Utilisé spécifiquement pour l'item "audio" de l'écran de preuves
   interface_audio: "assets/images/backgrounds/processed/interface_du_logiciel_d'analyse_audio_durant_la_verification_de_l'audio.png",
   interface_whatsapp: "assets/images/backgrounds/processed/image_de_telephone_dans_l'interface_whatzapp_de_la_promo.png"
-
+  // Pas d'entrée pour 'menu' / 'prologue' : ces écrans gardent le
+  // dégradé CSS d'origine (identité visuelle des maquettes validées).
 };
 
 

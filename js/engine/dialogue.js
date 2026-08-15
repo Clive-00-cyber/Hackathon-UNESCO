@@ -151,7 +151,7 @@ const DialogueEngine = (() => {
     els.advanceHint.style.opacity = '1';
   }
 
-  // ---- Mode automatique : voix + enchaînement seul ----------------
+  
   let speechToken = 0;   // incrémenté à chaque nouvelle ligne ou arrêt :
                           // invalide tout speak()/onend/audio en vol venant d'avant
   let speakDelayTimer = null;
@@ -171,10 +171,7 @@ const DialogueEngine = (() => {
     }
   }
 
-  // Voix enregistrée (fichier réel) : priorité sur la synthèse vocale quand
-  // une ligne en fournit une. Si le fichier est absent, corrompu, ou que la
-  // lecture échoue pour une autre raison, on retombe silencieusement sur la
-  // synthèse vocale — aucune ligne ne reste muette.
+
   function playRecordedAudio(path, myToken, onFallback) {
     const audioEl = els.audioEl;
     audioEl.onended = null;
@@ -220,15 +217,9 @@ const DialogueEngine = (() => {
         stopKeepAlive();
         scheduleAutoAdvance();
       };
-      // Contournement d'un bug connu des navigateurs Chromium : la synthèse
-      // vocale se coupe silencieusement après ~15s sans jamais déclencher
-      // "onend", surtout sur les répliques longues. En mettant en pause puis
-      // en reprenant régulièrement, on empêche le moteur de s'endormir.
+
       startKeepAlive();
-      // léger délai avant de lancer : évite un conflit avec le cancel() qui
-      // précède, qui peut lui aussi faire taire l'utterance suivante trop tôt.
-      // Le jeton (myToken) garantit que si le joueur a déjà "skip" cette
-      // ligne avant que ce délai n'expire, ce speak() ne partira jamais.
+
       clearTimeout(speakDelayTimer);
       speakDelayTimer = setTimeout(() => {
         speakDelayTimer = null;
@@ -309,10 +300,7 @@ const DialogueEngine = (() => {
     stopSpeech();
   }
 
-  // Appelée à la reprise après une pause : en mode manuel, il n'y a rien
-  // à relancer (le clic suivant reprend naturellement) ; en mode lecture
-  // automatique, on rejoue la ligne en cours pour ne pas laisser le
-  // joueur bloqué en silence.
+
   function resume() {
     if (isAutoReadEnabled() && lines.length && index < lines.length) {
       renderLine();

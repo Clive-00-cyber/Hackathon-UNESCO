@@ -6,17 +6,17 @@ const SaveManager = (() => {
     hasSeenIntro: false,
     unlockedChapters: ['chap1'],
     current: { chapterId: 'chap1', sceneId: null },
-    visitedMapPoints: {},   
-    visitedScenes: [],      
+    visitedMapPoints: {},   // { carte_acte2: ['zenitsu','goemon'] }
+    visitedScenes: [],      // ["chap1:acte1_decouverte", ...] pour la carte de progression
     completedChapters: []
   });
 
   const defaultOptions = () => ({
-    textSpeed: 'normal',   
+    textSpeed: 'normal',   // 'lent' | 'normal' | 'rapide'
     musicVolume: 0.6,
     sfxVolume: 0.8,
-    autoRead: false,       
-    language: 'fr'         
+    autoRead: false,       // lecture automatique à voix haute (Web Speech API)
+    language: 'fr'         // 'fr' | 'en'
   });
 
   function load() {
