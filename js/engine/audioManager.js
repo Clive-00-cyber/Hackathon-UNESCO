@@ -1,22 +1,3 @@
-/**
- * audioManager.js — Ambiance sonore procédurale (Web Audio API)
- * -----------------------------------------------------------------
- * Génère en temps réel des nappes sonores minimalistes ("dark ambient")
- * plutôt que de charger des fichiers audio. Quatre variantes, choisies
- * selon l'écran affiché :
- *   - menu         : accords ouverts, chaleureux, calme
- *   - investigation: nappe mineure + éclats aigus épars ("indices")
- *   - tension      : cluster serré + pouls grave lent ("cœur qui bat")
- *   - result       : accord large, plus lumineux, shimmer discret
- *
- * Volume relié au curseur "Musique" des Options (SaveManager). Reste
- * volontairement en retrait ("présent mais en retrait") : le volume
- * du curseur est plafonné avant d'atteindre le master gain.
- *
- * Aucune dépendance : si l'API Web Audio est indisponible, toutes les
- * fonctions ne font rien silencieusement (le jeu continue sans erreur).
- */
-
 const AudioManager = (() => {
   let ctx = null;
   let masterGain = null;
@@ -31,8 +12,8 @@ const AudioManager = (() => {
 
   const PRESETS = {
     menu: {
-      notes: [110.00, 164.81, 220.00],      // A2, E3, A3 — quinte + octave, chaleureux
-      subNote: 55.00,                       // couche sub-grave discrète (casque/subwoofer)
+      notes: [110.00, 164.81, 220.00],     
+      subNote: 55.00,                      
       noteLevel: [0.30, 0.22, 0.14],
       waveform: 'sine',
       detune: 3,
@@ -42,7 +23,7 @@ const AudioManager = (() => {
       lfoDepth: 0.05
     },
     investigation: {
-      notes: [116.54, 138.59, 174.61],      // Bb2, Db3, F3 — triade mineure
+      notes: [116.54, 138.59, 174.61],     
       subNote: 58.27,
       noteLevel: [0.28, 0.20, 0.16],
       waveform: 'sine',
@@ -54,11 +35,10 @@ const AudioManager = (() => {
       noise: true,
       noiseFreq: 500,
       noiseLevel: 0.012,
-      sparkle: true                        // éclats aigus espacés aléatoirement
+      sparkle: true                       
     },
     tension: {
-      notes: [123.47, 146.83, 174.61],      // B2, D3, F3 — cluster serré, sombre
-      subNote: 61.74,
+      notes: [123.47, 146.83, 174.61],      
       noteLevel: [0.28, 0.19, 0.16],
       waveform: 'triangle',
       detune: 7,
@@ -66,10 +46,10 @@ const AudioManager = (() => {
       filterQ: 0.8,
       lfoRate: [0.11, 0.13, 0.09],
       lfoDepth: 0.08,
-      heartbeat: true                      // pouls grave lent
+      heartbeat: true                      
     },
     result: {
-      notes: [110.00, 220.00, 329.63],      // A2, A3, E4 — accord large, ouvert
+      notes: [110.00, 220.00, 329.63],      
       subNote: 55.00,
       noteLevel: [0.27, 0.18, 0.12],
       waveform: 'sine',
@@ -78,7 +58,7 @@ const AudioManager = (() => {
       filterQ: 0.5,
       lfoRate: [0.04, 0.045, 0.05],
       lfoDepth: 0.05,
-      shimmer: true                        // scintillement aigu discret
+      shimmer: true                      
     }
   };
 
@@ -108,8 +88,7 @@ const AudioManager = (() => {
     }
   }
 
-  // Débloque le contexte audio au premier geste utilisateur (obligatoire
-  // dans tous les navigateurs modernes avant de laisser sortir du son).
+
   function bindUnlock() {
     if (unlocked) return;
     unlocked = true;

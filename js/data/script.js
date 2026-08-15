@@ -222,7 +222,6 @@ const GAME_DATA = {
     },
 
     // CHAPITRE II — LE SILENCE  (Acte III du scénario)
-
     {
       id: 'chap2',
       number: 'II',
@@ -325,7 +324,7 @@ const GAME_DATA = {
 
 
     // CHAPITRE III — LA TRAHISON  (Acte IV + Épilogue)
-
+   
     {
       id: 'chap3',
       number: 'III',
@@ -451,5 +450,5 @@ const GAME_DATA = {
   ]
 };
 
-
+// Export global (pas de bundler : chargement via <script> classique)
 window.GAME_DATA = GAME_DATA;

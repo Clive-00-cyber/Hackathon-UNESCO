@@ -22,3 +22,4 @@ js/engine/saveManager.js     → sauvegarde locale (localStorage)
 js/data/script.js            → TOUTE la donnée narrative (scénario transcrit en scènes)
 assets/                      → dossiers prêts, actuellement vides (placeholders CSS utilisés)
 ```
+

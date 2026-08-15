@@ -113,6 +113,9 @@ const SceneManager = (() => {
     bindGlobalControls();
   }
 
+
+
+
   function playPrologue() {
     showScreen('prologue');
     setBackground('prologue');
@@ -126,7 +129,7 @@ const SceneManager = (() => {
     let typeTimer = null;
     let waitTimer = null;
 
-
+    
     let prologueVoice = null;
     let voicePicked = false;
     let speechToken = 0;
@@ -164,7 +167,7 @@ const SceneManager = (() => {
     }
 
     function stopPrologueSpeech() {
-      speechToken++;
+      speechToken++; // invalide tout speak()/onend encore en vol (skip rapide)
       clearTimeout(speakDelayTimer);
       speakDelayTimer = null;
       stopKeepAlive();
@@ -174,7 +177,7 @@ const SceneManager = (() => {
     function speakLine(text) {
       if (!('speechSynthesis' in window)) return;
       stopPrologueSpeech();
-      const myToken = speechToken;
+      const myToken = speechToken; // stopPrologueSpeech vient d'incrémenter
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'fr-FR';
       if (prologueVoice) utter.voice = prologueVoice;
@@ -185,7 +188,7 @@ const SceneManager = (() => {
       startKeepAlive();
       speakDelayTimer = setTimeout(() => {
         speakDelayTimer = null;
-        if (myToken !== speechToken) return; 
+        if (myToken !== speechToken) return; // ligne dépassée entre-temps
         window.speechSynthesis.speak(utter);
       }, 30);
     }
@@ -247,7 +250,7 @@ const SceneManager = (() => {
     function advanceStep(e) {
       if (e && e.target && e.target.id === 'btn-skip-prologue') return; // géré séparément
       if (typing) {
-  
+        // premier clic pendant la frappe : affiche la ligne en entier
         typing = false;
         clearTimeout(typeTimer);
         lineEl.textContent = window.I18n ? I18n.text(lines[i]) : lines[i];
@@ -255,7 +258,7 @@ const SceneManager = (() => {
         waitTimer = setTimeout(() => advanceStep(), 1200);
         return;
       }
-      stopPrologueSpeech(); 
+      stopPrologueSpeech(); // on quitte cette ligne : coupe la voix avant la suivante
       clearTimeout(waitTimer);
       i++;
       showStep();
@@ -323,6 +326,7 @@ const SceneManager = (() => {
   }
 
 
+
   function playScene(chapterId, sceneId, opts = {}) {
     const chapter = getChapter(chapterId);
     const scene = chapter.scenes[sceneId];
@@ -332,7 +336,7 @@ const SceneManager = (() => {
       return;
     }
 
-    
+    // redirection technique (utilisée par la carte pour revenir sur elle-même)
     if (scene.redirectTo) {
       playScene(chapterId, scene.redirectTo, opts);
       return;
@@ -359,7 +363,7 @@ const SceneManager = (() => {
     }
   }
 
-
+  // Retour à la scène précédente (bouton "‹" ou pause > Revenir en arrière)
   function goBack() {
     closePause();
     if (history.length > 0) {
@@ -429,6 +433,7 @@ const SceneManager = (() => {
     continueBtn.onclick = () => goNext(chapterId, scene);
   }
 
+  //  Analyse de preuves 
   function renderEvidence(chapterId, scene) {
     showScreen('evidence');
     setBackground(scene.background);
@@ -646,7 +651,9 @@ const SceneManager = (() => {
       DialogueEngine.setAutoRead(autoReadCheckbox.checked);
     });
 
-
+    // Langue (Français / English) : pas de rechargement de page, tout se
+    // retraduit en direct au prochain rendu (les écrans dynamiques lisent
+    // I18n à chaque affichage) ; on ne force que les libellés statiques.
     const langButtons = { fr: document.getElementById('lang-fr'), en: document.getElementById('lang-en') };
     function refreshLangButtons() {
       const current = I18n.getLang();
@@ -660,7 +667,8 @@ const SceneManager = (() => {
         I18n.setLang(lang);
         refreshLangButtons();
         I18n.applyStaticUI();
-    
+        // réaffiche l'écran courant pour que son contenu dynamique (s'il y
+        // en a) bascule immédiatement dans la nouvelle langue
         const current = document.getElementById('app').dataset.currentScreen;
         if (current === 'chapters') showChapterSelect();
         if (current === 'worldmap') switchMapTab(document.getElementById('tab-progression').classList.contains('active') ? 'progression' : 'scenario');

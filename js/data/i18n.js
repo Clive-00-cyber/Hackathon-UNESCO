@@ -128,12 +128,10 @@ const I18n = (() => {
     SaveManager.saveOptions(options);
   }
 
-  // Texte d'interface fixe (boutons, titres d'écran…)
   function t(key) {
     const lang = getLang();
     return (UI_STRINGS[lang] && UI_STRINGS[lang][key]) || UI_STRINGS.fr[key] || key;
   }
-
 
   function text(field) {
     if (field == null) return '';

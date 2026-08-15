@@ -88,7 +88,7 @@ async function testAllMoodsBuildWithoutError() {
     console.error('Exception:', e);
     ok = false;
   }
-  console.log('Test A (4 ambiances + volume + duck + stopAll, sans exception) :', ok ? 'PASS ✅' : 'FAIL ❌');
+  console.log('Test A (4 ambiances + volume + duck + stopAll, sans exception) :', ok ? 'PASS ' : 'FAIL ');
   return ok;
 }
 
@@ -98,8 +98,8 @@ async function testMoodSwitchStopsPreviousOscillators() {
   AM.init();
   AM.playMood('menu');
   const startsAfterMenu = log.filter(e => e.ev === 'start').length;
-  AM.playMood('tension'); 
-  await wait(1700); 
+  AM.playMood('tension'); // doit programmer l'arrêt des oscillateurs de 'menu'
+  await wait(1700); // le fondu de sortie dure 1.4s + marge
   const stops = log.filter(e => e.ev === 'stop').length;
   const doubleStops = log.filter(e => e.ev === 'double-stop!').length;
   console.log(`Test B — oscillateurs démarrés pour 'menu': ${startsAfterMenu}, stoppés après changement d'ambiance: ${stops}, doubles-stop: ${doubleStops}`);
