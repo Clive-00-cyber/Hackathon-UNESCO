@@ -1,33 +1,13 @@
-/*
-  assets.js — Table de correspondance des visuels réels
-  Fait le lien entre les identifiants utilisés dans script.js
-  (background: 'bibliotheque', who/speaker: 'kirito', pose: 'reflexion'…)
-  et les vrais fichiers fournis par l'équipe design.
- 
-  Pourquoi un fichier séparé : script.js décrit la NARRATION (quoi
-  dire, dans quel ordre) ; assets.js décrit la PRÉSENTATION (quel
-  fichier image afficher). Si l'équipe design renomme ou ajoute des
-  fichiers, seul ce fichier bouge — le scénario reste intact.
- 
-  Chemins relatifs à la racine du projet (utilisés tels quels comme
-  src / background-image).
- */
-
 const ASSET_BACKGROUNDS = {
   bibliotheque: "assets/images/backgrounds/processed/bibliotheque_de_l'universite.png",
   couloir: "assets/images/backgrounds/processed/couloir_de_l'universite.png",
-  /*Salle informatique de Goemon : l'interface Discord (avec Shadow_01 visible dans la liste des membres)
-   raconte mieux la scène qu'une
-   salle de serveurs générique.*/
+.
   salle_info: "assets/images/backgrounds/processed/image_de_l'interface_discord_de_kirito.png",
-  // Musashi (Acte II) et le directeur (Acte IV) partagent le même type
-  // de bureau ; on utilise les deux variantes disponibles pour les
-  // distinguer visuellement.
+
   bureau_bde: 'assets/images/backgrounds/processed/bureau_du_directeur_vue_moins_zoomer.png',
   bureau_directeur: 'assets/images/backgrounds/processed/bureau_du_directeur.png',
   salle_etude: "assets/images/backgrounds/processed/salle_d'etude.png",
-  // L'épilogue affiche directement l'image du message de l'antagoniste
-  // plutôt qu'un fond générique de campus de nuit.
+
   exterieur_nuit: "assets/images/backgrounds/processed/image_de_texte_ecris_par_l'antagoniste.png",
   // Repères additionnels disponibles pour un usage futur
   salle_serveur: 'assets/images/backgrounds/processed/salle_des_serveur.png',
@@ -46,19 +26,15 @@ const ASSET_BACKGROUNDS = {
   campus_vent: 'assets/images/backgrounds/processed/campus_sous_le_vent.png',
   // Prologue : ambiance campus balayé par le vent, ton solennel
   prologue: 'assets/images/backgrounds/processed/campus_sous_le_vent.png',
-  // Carte d'enquête : pas d'image de plan à proprement parler, on utilise
-  // le jardin du campus comme toile de fond pour les points cliquables
+
   carte: 'assets/images/backgrounds/processed/jardin_du_campus.png',
   // Utilisé spécifiquement pour l'item "audio" de l'écran de preuves
   interface_audio: "assets/images/backgrounds/processed/interface_du_logiciel_d'analyse_audio_durant_la_verification_de_l'audio.png",
   interface_whatsapp: "assets/images/backgrounds/processed/image_de_telephone_dans_l'interface_whatzapp_de_la_promo.png"
-  // Pas d'entrée pour 'menu' / 'prologue' : ces écrans gardent le
-  // dégradé CSS d'origine (identité visuelle des maquettes validées).
+
 };
 
-// Chaque personnage : une pose 'neutre' obligatoire (utilisée par
-// défaut) + des poses additionnelles optionnelles référencées depuis
-// script.js via le champ "pose" de chaque ligne de dialogue.
+
 const ASSET_CHARACTERS = {
   kirito: {
     neutre: 'assets/images/characters/kirito/kirito_posture_1.png',

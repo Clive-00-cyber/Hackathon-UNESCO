@@ -1,16 +1,3 @@
-/*
-  i18n.js — Moteur de traduction Français / Anglais
-  Deux responsabilités séparées :
-   1. UI_STRINGS : textes fixes de l'interface (boutons, titres d'écran,
-      messages) — appliqués aux éléments [data-i18n]/[data-i18n-title]
-      via applyStaticUI().
-   2. text(field) : résout un champ narratif bilingue venu de script.js,
-      de la forme { fr: '...', en: '...' }. Si le champ est une simple
-      chaîne (pas encore traduite), elle est renvoyée telle quelle —
-      donc rien ne casse si une partie du contenu n'a pas encore de
-     version anglaise.
- */
-
 const UI_STRINGS = {
   fr: {
     prologue_skip: 'Passer ›',
@@ -147,8 +134,7 @@ const I18n = (() => {
     return (UI_STRINGS[lang] && UI_STRINGS[lang][key]) || UI_STRINGS.fr[key] || key;
   }
 
-  // Champ narratif bilingue venu de script.js : { fr:'...', en:'...' }
-  // Une simple chaîne (pas encore traduite) est renvoyée telle quelle.
+
   function text(field) {
     if (field == null) return '';
     if (typeof field === 'string') return field;

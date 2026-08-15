@@ -27,7 +27,7 @@ const ProgressionTrail = (() => {
       heading.textContent = `${chapWord} ${chapter.number} — ${chapTitle}`;
       container.appendChild(heading);
 
-      // index du dernier repère visité dans CE chapitre (progression courante)
+      
       let lastVisitedIndex = -1;
       path.forEach((step, i) => {
         if (visited.has(`${chapter.id}:${step.id}`)) lastVisitedIndex = i;
