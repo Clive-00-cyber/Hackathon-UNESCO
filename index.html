@@ -1,20 +1,279 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Nom du jeu</title>
-  <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ombres d'Encre — Un roman visuel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <div id="game-container">
-    <div id="scene"></div>
-    <div id="dialogue-box">
-      <span id="character-name"></span>
-      <p id="dialogue-text"></p>
+  <div id="app">
+
+
+    <div id="scene-background" data-bg="menu">
+      <div class="particles" id="particles"></div>
+    </div>
+
+
+    <section class="screen" data-screen="prologue">
+      <button class="skip-link" id="btn-skip-prologue" data-i18n="prologue_skip">Passer ›</button>
+      <div class="prologue-frame">
+        <div class="prologue-eyebrow" id="prologue-eyebrow">PROLOGUE</div>
+        <p class="prologue-line" id="prologue-line"></p>
+      </div>
+      <div class="prologue-tap-hint" data-i18n="prologue_hint">cliquez pour continuer</div>
+    </section>
+
+
+    <section class="screen active" data-screen="menu">
+      <div class="menu-panel">
+        <div class="menu-ornament">◆</div>
+        <h1 class="game-title">OMBRES D'ENCRE</h1>
+        <p class="game-subtitle" data-i18n="game_subtitle">Un roman visuel</p>
+        <nav class="menu-list">
+          <button class="menu-item" id="btn-commencer" data-i18n="menu_start">Commencer</button>
+          <button class="menu-item" id="btn-carte" data-i18n="menu_map">Carte</button>
+          <button class="menu-item" id="btn-prologue" data-i18n="menu_replay_prologue">Revoir le prologue</button>
+          <button class="menu-item" data-simple-screen="options" data-i18n="menu_options">Options</button>
+          <button class="menu-item" data-simple-screen="galerie" data-i18n="menu_gallery">Galerie</button>
+          <button class="menu-item" data-simple-screen="credits" data-i18n="menu_credits">Crédits</button>
+          <button class="menu-item" id="btn-quitter" data-i18n="menu_quit">Quitter</button>
+        </nav>
+        <p class="version-tag" data-i18n="version_tag">projet original v0.1</p>
+      </div>
+    </section>
+
+
+    <section class="screen" data-screen="chapters">
+      <h1 class="section-title" data-i18n="chapters_title">Chapitres</h1>
+      <div class="chapter-grid" id="chapter-grid"></div>
+      <button class="back-link" data-nav="menu" data-i18n="back">‹ Retour</button>
+    </section>
+
+    <section class="screen" data-screen="worldmap">
+      <div class="map-tabs">
+        <button class="map-tab active" id="tab-scenario" data-i18n="tab_scenario">Carte du scénario</button>
+        <button class="map-tab" id="tab-progression" data-i18n="tab_progression">Ma progression</button>
+      </div>
+
+      <div class="map-view active" id="view-scenario">
+        <div class="worldmap-frame">
+          <svg class="worldmap-path" id="worldmap-path" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <polyline points="15,72 50,32 85,68" />
+          </svg>
+          <div id="worldmap-nodes"></div>
+        </div>
+        <p class="worldmap-legend" id="worldmap-legend"></p>
+      </div>
+
+
+      <div class="map-view" id="view-progression">
+        <div class="trail-frame" id="trail-frame">
+          <div class="trail-path" id="trail-path"></div>
+        </div>
+      </div>
+
+      <button class="back-link" data-nav="menu" data-i18n="back">‹ Retour</button>
+    </section>
+
+
+    <section class="screen" data-screen="map">
+      <div class="ingame-topbar">
+        <button class="icon-btn pause-trigger" title="Pause" data-i18n-title="pause_title">☰</button>
+        <button class="icon-btn back-scene-btn" title="Retour" data-i18n-title="back">‹</button>
+      </div>
+      <div class="map-frame">
+        <p class="map-intro" id="map-intro"></p>
+        <div class="map-area">
+          <div id="map-points"></div>
+        </div>
+        <button class="primary-btn map-continue" id="map-continue" data-i18n="continue_investigation">Continuer l'enquête</button>
+      </div>
+      <button class="back-link" data-nav="chapters" data-i18n="back_chapters">‹ Chapitres</button>
+    </section>
+
+    <section class="screen" data-screen="evidence">
+      <div class="ingame-topbar">
+        <button class="icon-btn pause-trigger" title="Pause">☰</button>
+        <button class="icon-btn back-scene-btn" title="Retour">‹</button>
+      </div>
+      <div class="evidence-frame">
+        <h2 class="section-title small" data-i18n="evidence_title">Analyse des preuves</h2>
+        <p class="evidence-intro" id="evidence-intro"></p>
+        <div class="evidence-layout">
+          <div class="evidence-list" id="evidence-list"></div>
+          <div class="evidence-detail" id="evidence-detail">
+            <img class="evidence-detail-img" id="evidence-detail-img" alt="" />
+            <p class="evidence-detail-text" id="evidence-detail-text" data-i18n="evidence_placeholder">Sélectionne une preuve à examiner.</p>
+          </div>
+        </div>
+        <button class="primary-btn evidence-continue" id="evidence-continue" data-i18n="continue">Continuer</button>
+      </div>
+    </section>
+
+
+    <section class="screen" data-screen="decision">
+      <div class="ingame-topbar">
+        <button class="icon-btn pause-trigger" title="Pause">☰</button>
+        <button class="icon-btn back-scene-btn" title="Retour">‹</button>
+      </div>
+      <div class="decision-frame">
+        <h2 class="section-title small" data-i18n="verdict_title">Le verdict</h2>
+        <p class="decision-prompt" id="decision-prompt"></p>
+        <div class="decision-choices" id="decision-choices"></div>
+      </div>
+    </section>
+
+
+    <section class="screen" data-screen="result">
+      <div class="ingame-topbar">
+        <button class="icon-btn pause-trigger" title="Pause">☰</button>
+        <button class="icon-btn back-scene-btn" title="Retour">‹</button>
+      </div>
+      <div class="result-frame">
+        <h2 class="result-title" id="result-title"></h2>
+        <p class="result-text" id="result-text"></p>
+        <button class="primary-btn visible" id="result-continue" data-i18n="continue">Continuer</button>      </div>
+    </section>
+
+
+    <section class="screen" data-screen="transition">
+      <div class="transition-frame">
+        <div class="transition-spinner"><span></span><span></span><span></span></div>
+        <p class="transition-text" id="transition-text"></p>
+      </div>
+    </section>
+
+       <section class="screen" data-screen="audioplayer">
+      <div class="audioplayer-frame">
+        <p class="audioplayer-label" id="audioplayer-label" data-i18n="audioplayer_label">Fichier audio</p>
+        <button class="audioplayer-play" id="audioplayer-play" aria-label="Lecture">▶</button>
+        <div class="audioplayer-progress"><div class="audioplayer-progress-fill" id="audioplayer-progress-fill"></div></div>
+        <p class="audioplayer-hint" id="audioplayer-hint" data-i18n="audioplayer_hint">Cliquez pour écouter</p>
+        <button class="primary-btn visible" id="audioplayer-continue" data-i18n="continue">Continuer</button>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="dialogue">
+      <div id="dlg-hud" class="dlg-hud">
+        <button class="icon-btn pause-trigger" title="Pause">☰</button>
+        <div class="dlg-hud-right">
+          <button class="text-btn" id="btn-auto" data-i18n="hud_auto">Auto</button>
+          <button class="text-btn" data-simple-screen="history" data-i18n="hud_history">Hist.</button>
+          <button class="text-btn" id="btn-save" data-i18n="hud_save">Sauv.</button>
+        </div>
+      </div>
+
+      <div class="character-stage" id="character-stage">
+        <div class="character-slot" id="char-slot-left" data-side="left">
+          <img class="character-img" id="char-img-left" alt="" />
+          <div class="character-placeholder"></div>
+        </div>
+        <div class="character-slot" id="char-slot-right" data-side="right">
+          <img class="character-img" id="char-img-right" alt="" />
+          <div class="character-placeholder"></div>
+        </div>
+      </div>
+
+      <div class="dialogue-box" id="dialogue-box">
+        <audio id="dlg-voice-audio" preload="none" style="display:none"></audio>
+        <div class="dlg-name-box" id="dlg-name-box">
+          <span id="dlg-name"></span>
+        </div>
+        <div class="dlg-text-box">
+          <p id="dlg-text"></p>
+          <span class="dlg-advance-hint" id="dlg-advance-hint">▶</span>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="screen" data-screen="options">
+      <div class="simple-panel">
+        <h2 class="section-title small" data-i18n="options_title">Options</h2>
+        <label class="option-row option-row-toggle">
+          <span data-i18n="opt_language">Langue</span>
+          <span class="lang-switch">
+            <button class="lang-btn" id="lang-fr" data-lang="fr">Français</button>
+            <button class="lang-btn" id="lang-en" data-lang="en">English</button>
+          </span>
+        </label>
+        <label class="option-row option-row-toggle">
+          <span data-i18n="opt_autoread">Lecture automatique (voix)</span>
+          <input type="checkbox" id="opt-auto-read" class="toggle-switch" />
+        </label>
+        <p class="option-hint" data-i18n="opt_autoread_hint">Le texte est lu à voix haute et s'enchaîne seul : vous pouvez simplement écouter.</p>
+        <label class="option-row">
+          <span data-i18n="opt_speed">Vitesse du texte</span>
+          <select id="opt-text-speed">
+            <option value="lent" data-i18n="opt_speed_slow">Lent</option>
+            <option value="normal" data-i18n="opt_speed_normal">Normal</option>
+            <option value="rapide" data-i18n="opt_speed_fast">Rapide</option>
+          </select>
+        </label>
+        <label class="option-row">
+          <span data-i18n="opt_music">Musique</span> <input type="range" id="opt-music" min="0" max="1" step="0.1" />
+        </label>
+        <label class="option-row">
+          <span data-i18n="opt_sfx">Effets sonores</span> <input type="range" id="opt-sfx" min="0" max="1" step="0.1" />
+        </label>
+        <button class="back-link" id="btn-reset-save" data-i18n="opt_reset">Réinitialiser la progression</button>
+        <button class="back-link" data-nav="menu" data-i18n="back">‹ Retour</button>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="galerie">
+      <div class="simple-panel">
+        <h2 class="section-title small" data-i18n="gallery_title">Galerie</h2>
+        <p class="muted-text" data-i18n="gallery_text">Les illustrations débloquées apparaîtront ici au fil de votre progression.</p>
+        <button class="back-link" data-nav="menu" data-i18n="back">‹ Retour</button>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="credits">
+      <div class="simple-panel">
+        <h2 class="section-title small" data-i18n="credits_title">Crédits</h2>
+        <p class="muted-text" data-i18n="credits_text">Ombres d'Encre — projet original<br/>Scénario, code et direction artistique en développement.</p>
+        <button class="back-link" data-nav="menu" data-i18n="back">‹ Retour</button>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="history">
+      <div class="simple-panel">
+        <h2 class="section-title small" data-i18n="history_title">Historique</h2>
+        <p class="muted-text" data-i18n="history_text">L'historique des dialogues sera disponible dans une prochaine itération.</p>
+        <button class="back-link" data-nav="chapters" data-i18n="back">‹ Retour</button>
+      </div>
+    </section>
+
+
+    <div class="toast" id="toast"></div>
+
+
+    <div class="pause-overlay" id="pause-overlay">
+      <div class="pause-panel">
+        <h2 class="section-title small" data-i18n="pause_heading">Pause</h2>
+        <button class="menu-item" id="pause-resume" data-i18n="pause_resume">Reprendre</button>
+        <button class="menu-item" id="pause-back" data-i18n="pause_back">‹ Revenir en arrière</button>
+        <button class="menu-item" id="pause-save" data-i18n="pause_save">Sauvegarder</button>
+        <button class="menu-item" id="pause-chapters" data-i18n="pause_chapters">Chapitres</button>
+        <button class="menu-item" id="pause-menu" data-i18n="pause_mainmenu">Menu principal</button>
+      </div>
     </div>
   </div>
+
+  <script src="js/data/assets.js"></script>
+  <script src="js/data/i18n.js"></script>
   <script src="js/data/script.js"></script>
+  <script src="js/engine/saveManager.js"></script>
   <script src="js/engine/dialogue.js"></script>
+  <script src="js/engine/mapManager.js"></script>
+  <script src="js/engine/audioManager.js"></script>
+  <script src="js/engine/progressMap.js"></script>
+  <script src="js/engine/progressionTrail.js"></script>
   <script src="js/engine/sceneManager.js"></script>
   <script src="js/main.js"></script>
 </body>
