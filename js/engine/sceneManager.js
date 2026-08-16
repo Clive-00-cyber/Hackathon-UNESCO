@@ -14,7 +14,7 @@ const SceneManager = (() => {
     menu: 'menu', chapters: 'menu', worldmap: 'menu', options: 'menu',
     galerie: 'menu', credits: 'menu', history: 'menu',
     dialogue: 'investigation', map: 'investigation', evidence: 'investigation',
-    decision: 'tension', prologue: 'tension',
+    decision: 'tension', prologue: 'tension', transition: 'investigation', audioplayer: 'tension',
     result: 'result'
   };
 
@@ -44,6 +44,12 @@ const SceneManager = (() => {
     }
   }
 
+  // ---------------------------------------------------------------
+  // Mise en scène des personnages (dialogue.js ne connaît pas les
+  // personnages : c'est ici qu'on décide qui apparaît, où, et avec
+  // quelle pose, à partir de scene.characters + speaker/pose de la
+  // ligne en cours.
+  // ---------------------------------------------------------------
   function setupCharacterStage(scene) {
     const slots = { left: document.getElementById('char-slot-left'), right: document.getElementById('char-slot-right') };
     const imgs = { left: document.getElementById('char-img-left'), right: document.getElementById('char-img-right') };
@@ -114,7 +120,9 @@ const SceneManager = (() => {
   }
 
 
-
+  // Prologue cinématique 
+  // depuis le menu via "Revoir le prologue"   machine à écrire 
+  // sombre et solennelle que le reste du jeu.
 
   function playPrologue() {
     showScreen('prologue');
@@ -129,7 +137,12 @@ const SceneManager = (() => {
     let typeTimer = null;
     let waitTimer = null;
 
-    
+    // --- Narration audio du prologue --------------------------------
+    // Voix distincte de celle du jeu (dialogue.js) : plus aiguë, un peu
+    // plus lente, et on essaie explicitement une voix féminine si le
+    // navigateur en propose plusieurs en français. Toujours active,
+    // indépendamment de l'option "Lecture automatique" (c'est une
+    // narration cinématique, pas une réplique de personnage).
     let prologueVoice = null;
     let voicePicked = false;
     let speechToken = 0;
@@ -325,7 +338,9 @@ const SceneManager = (() => {
     SaveManager.save(state);
   }
 
-
+  // Résolution générique d'une scène (dialogue / map / evidence / etc.)
+  // opts.skipHistory : ne pousse pas la scène quittée dans l'historique
+  // (utilisé par goBack() pour éviter les allers-retours en boucle)
 
   function playScene(chapterId, sceneId, opts = {}) {
     const chapter = getChapter(chapterId);
@@ -358,6 +373,8 @@ const SceneManager = (() => {
       case 'evidence': return renderEvidence(chapterId, scene);
       case 'decision': return renderDecision(chapterId, scene);
       case 'result': return renderResult(chapterId, scene);
+      case 'transition': return renderTransition(chapterId, scene);
+      case 'audioplayer': return renderAudioPlayer(chapterId, scene);
       default:
         console.error(`Type de scène inconnu: ${scene.type}`);
     }
@@ -440,9 +457,11 @@ const SceneManager = (() => {
     document.getElementById('evidence-intro').textContent = window.I18n ? I18n.text(scene.intro) : (scene.intro || '');
 
     const list = document.getElementById('evidence-list');
-    const detailBox = document.getElementById('evidence-detail');
+    const detailImg = document.getElementById('evidence-detail-img');
+    const detailText = document.getElementById('evidence-detail-text');
     list.innerHTML = '';
-    detailBox.textContent = I18n.t('evidence_placeholder');
+    detailImg.classList.remove('visible');
+    detailText.textContent = I18n.t('evidence_placeholder');
     const examined = new Set();
 
     scene.items.forEach(item => {
@@ -450,11 +469,16 @@ const SceneManager = (() => {
       btn.className = 'evidence-item';
       btn.textContent = I18n.text(item.label);
       btn.addEventListener('click', () => {
-        detailBox.textContent = I18n.text(item.detail);
+        detailText.textContent = I18n.text(item.detail);
+        if (item.image) {
+          detailImg.src = item.image;
+          detailImg.classList.add('visible');
+        } else {
+          detailImg.classList.remove('visible');
+        }
         btn.classList.add('examined');
         examined.add(item.id);
         continueBtn.classList.toggle('visible', examined.size === scene.items.length);
-        setBackground(item.background || scene.background);
       });
       list.appendChild(btn);
     });
@@ -463,6 +487,64 @@ const SceneManager = (() => {
     continueBtn.classList.remove('visible');
     continueBtn.onclick = () => goNext(chapterId, scene);
   }
+
+  // --- Transition (déplacement / attente entre deux scènes) ----------
+  function renderTransition(chapterId, scene) {
+    showScreen('transition');
+    setBackground(scene.background || null);
+    document.getElementById('transition-text').textContent = I18n.text(scene.text);
+    clearTimeout(transitionTimer);
+    transitionTimer = setTimeout(() => goNext(chapterId, scene), scene.duration || 1800);
+  }
+
+  // --- Lecteur audio fictif (preuve écoutée dans l'histoire) ---------
+  function renderAudioPlayer(chapterId, scene) {
+    showScreen('audioplayer');
+    setBackground(scene.background);
+    document.getElementById('audioplayer-label').textContent = I18n.text(scene.label) || I18n.t('audioplayer_label');
+
+    const playBtn = document.getElementById('audioplayer-play');
+    const fill = document.getElementById('audioplayer-progress-fill');
+    const hint = document.getElementById('audioplayer-hint');
+    const continueBtn = document.getElementById('audioplayer-continue');
+    continueBtn.classList.remove('enabled');
+    fill.style.width = '0%';
+    playBtn.classList.remove('playing');
+    hint.textContent = I18n.t('audioplayer_hint');
+
+    const audioEl = new Audio(scene.audio);
+    let raf = null;
+    function updateProgress() {
+      if (audioEl.duration) fill.style.width = `${(audioEl.currentTime / audioEl.duration) * 100}%`;
+      raf = requestAnimationFrame(updateProgress);
+    }
+    playBtn.onclick = () => {
+      if (audioEl.paused) {
+        audioEl.play().catch(() => {});
+        playBtn.classList.add('playing');
+        hint.textContent = I18n.t('audioplayer_playing');
+        updateProgress();
+      } else {
+        audioEl.pause();
+        playBtn.classList.remove('playing');
+        cancelAnimationFrame(raf);
+      }
+    };
+    audioEl.onended = () => {
+      cancelAnimationFrame(raf);
+      fill.style.width = '100%';
+      playBtn.classList.remove('playing');
+      hint.textContent = I18n.t('audioplayer_done');
+      continueBtn.classList.add('enabled');
+    };
+    continueBtn.onclick = () => {
+      audioEl.pause();
+      cancelAnimationFrame(raf);
+      goNext(chapterId, scene);
+    };
+  }
+
+  let transitionTimer = null;
 
   // Décision 
   function renderDecision(chapterId, scene) {

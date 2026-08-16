@@ -1,3 +1,36 @@
+/**
+ * script.js — Données narratives d'"Ombres d'Encre"
+ * -----------------------------------------------------------------
+ * Toute la donnée du scénario vit ici, séparée du moteur (dialogue.js,
+ * sceneManager.js) ET de la présentation visuelle (assets.js).
+ * Modifier l'histoire = modifier ce fichier uniquement.
+ *
+ * BILINGUE : tout champ affiché au joueur (who, text, label, detail,
+ * title, prompt, intro) est un objet { fr:'...', en:'...' } résolu au
+ * moment de l'affichage par I18n.text() (voir js/data/i18n.js). Une
+ * simple chaîne reste acceptée en repli (traitée comme du français).
+ *
+ * Structure d'une scène :
+ *  - "dialogue" : { type:'dialogue', background, characters:[{id,side}],
+ *                   lines:[{who, speaker, pose, text}] }
+ *  - "map"      : { type:'map', background, points:[{id,label,x,y,goto}] }
+ *  - "evidence" : { type:'evidence', background, items:[{id,label,detail,background?}] }
+ *  - "decision" : { type:'decision', background, prompt, choices:[{label,correct,goto}] }
+ *  - "result"   : { type:'result', background, title, text, next }
+ *
+ * Sur une ligne de dialogue :
+ *  - "who"     : nom affiché dans l'étiquette (peut différer du personnage réel,
+ *                ex. "Extrait audio suspect" / "Suspicious audio clip")
+ *  - "speaker" : identifiant technique (voir assets.js/ASSET_CHARACTERS) utilisé
+ *                pour savoir quel portrait mettre en avant. Omis = narration,
+ *                aucun personnage n'est mis en avant sur cette ligne.
+ *  - "pose"    : clé de pose pour ce personnage sur cette ligne (voir
+ *                ASSET_CHARACTERS[speaker]). Omis = 'neutre'.
+ *
+ * "next" référence un sceneId à l'intérieur du même chapitre, ou
+ * "chapX:sceneId" pour pointer vers un autre chapitre (ex: déblocage).
+ */
+
 const GAME_DATA = {
   meta: {
     title: "Ombres d'Encre",
@@ -5,6 +38,10 @@ const GAME_DATA = {
     version: "projet original — v0.1"
   },
 
+  // Prologue cinématique : ne s'affiche qu'au tout premier lancement
+  // (et à la demande, via "Revoir le prologue"). Rendu par un écran
+  // dédié (voir sceneManager.playPrologue), au ton délibérément plus
+  // sombre et solennel que le reste du jeu. Pas de portraits ici.
   prologue: {
     lines: [
       {
@@ -39,8 +76,9 @@ const GAME_DATA = {
   },
 
   chapters: [
-   // CHAPITRE I — L'ÉVEIL  (Actes I & II du scénario)
-
+    // ============================================================
+    // CHAPITRE I — L'ÉVEIL  (Actes I & II du scénario)
+    // ============================================================
     {
       id: 'chap1',
       number: 'I',
@@ -89,11 +127,34 @@ const GAME_DATA = {
             { who: 'Kirito', speaker: 'kirito', audio: 'assets/audio/characters/kirito/Kirito_line2.mp3', pose: 'neutre', text: {
               fr: "Et un fichier audio, soi-disant envoyé par Musashi elle-même.",
               en: "And an audio file, supposedly sent by Musashi herself."
-            }},
-            { who: 'Extrait audio suspect', audio: 'assets/audio/characters/musashi/Mussashi_lineAnonyme.mp3', text: {
-              fr: "« Transférez l'argent en cachette, l'administration ne verra rien. Vos diplômes sont assurés. »",
-              en: "\u201cTransfer the money quietly, the administration won't notice. Your diplomas are guaranteed.\u201d"
-            }},
+            }}
+          ],
+          next: 'audio_reveal'
+        },
+
+        // Extrait audio suspect : présenté comme un vrai fichier qu'on écoute
+        // (lecteur dédié), pas comme une réplique de dialogue classique —
+        // pour bien marquer que c'est un enregistrement, pas quelqu'un qui
+        // parle dans la scène.
+        audio_reveal: {
+          type: 'audioplayer',
+          background: 'bibliotheque',
+          audio: 'assets/audio/characters/musashi/Mussashi_lineAnonyme.mp3',
+          label: {
+            fr: '« Transférez l\u2019argent en cachette, l\u2019administration ne verra rien. Vos diplômes sont assurés. »',
+            en: '\u201cTransfer the money quietly, the administration won\u2019t notice. Your diplomas are guaranteed.\u201d'
+          },
+          next: 'acte1_suite'
+        },
+
+        acte1_suite: {
+          type: 'dialogue',
+          background: 'bibliotheque',
+          characters: [
+            { id: 'kirito', side: 'left' },
+            { id: 'alpha', side: 'right' }
+          ],
+          lines: [
             { who: 'Alpha', speaker: 'alpha', audio: 'assets/audio/characters/alpha/Alpha_line2.mp3', pose: 'neutre', text: {
               fr: "On a environ quarante-cinq minutes avant que l'administration ne supprime le BDE et ne renvoie Musashi. Si on arrive à prouver le contraire avant…",
               en: "We have about forty-five minutes before the administration dissolves the council and expels Musashi. If we can prove otherwise before then…"
@@ -118,14 +179,18 @@ const GAME_DATA = {
             en: 'Three leads open up for Kirito. Where should he investigate first?'
           },
           points: [
-            { id: 'zenitsu', label: { fr: 'Zenitsu — Couloir principal', en: 'Zenitsu — Main hallway' }, x: 22, y: 62, goto: 'temoin_zenitsu' },
-            { id: 'goemon', label: { fr: 'Goemon — Salle informatique', en: 'Goemon — Computer lab' }, x: 55, y: 40, goto: 'temoin_goemon' },
-            { id: 'musashi', label: { fr: 'Musashi — Bureau du BDE', en: "Musashi — Student Council office" }, x: 80, y: 68, goto: 'temoin_musashi' }
+            { id: 'zenitsu', label: { fr: 'Zenitsu — Couloir principal', en: 'Zenitsu — Main hallway' }, x: 22, y: 62, goto: 'trans_zenitsu' },
+            { id: 'goemon', label: { fr: 'Goemon — Salle informatique', en: 'Goemon — Computer lab' }, x: 55, y: 40, goto: 'trans_goemon' },
+            { id: 'musashi', label: { fr: 'Musashi — Bureau du BDE', en: "Musashi — Student Council office" }, x: 80, y: 68, goto: 'trans_musashi' }
           ],
           // la carte ne passe à la suite que lorsque les 3 points ont été visités
           requireAll: true,
           next: 'analyse_etape2'
         },
+
+        trans_zenitsu: { type: 'transition', background: 'couloir', text: { fr: 'En route vers le couloir…', en: 'Heading to the hallway…' }, next: 'temoin_zenitsu' },
+        trans_goemon: { type: 'transition', background: 'salle_info', text: { fr: 'En route vers la salle informatique…', en: 'Heading to the computer lab…' }, next: 'temoin_goemon' },
+        trans_musashi: { type: 'transition', background: 'bureau_bde', text: { fr: 'En route vers le bureau du BDE…', en: 'Heading to the Student Council office…' }, next: 'temoin_musashi' },
 
         temoin_zenitsu: {
           type: 'dialogue',
@@ -215,13 +280,17 @@ const GAME_DATA = {
               en: "This reeks of a setup. But we need hard, irrefutable technical proof. Let's head to the study room."
             }}
           ],
-          next: 'chap2:acte3_intro',
+          next: 'trans_salle_etude',
           unlocks: 'chap2'
-        }
+        },
+
+        trans_salle_etude: { type: 'transition', background: 'salle_etude', text: { fr: "Direction la salle d'étude…", en: 'Heading to the study room…' }, next: 'chap2:acte3_intro' }
       }
     },
 
+    // ============================================================
     // CHAPITRE II — LE SILENCE  (Acte III du scénario)
+    // ============================================================
     {
       id: 'chap2',
       number: 'II',
@@ -269,7 +338,9 @@ const GAME_DATA = {
               detail: {
                 fr: "Le fond du document vient d'un modèle gratuit de facture. Des défauts carrés autour du montant et du nom de Musashi prouvent que le texte a été ajouté par-dessus, après coup.",
                 en: "The document's background comes from a free invoice template. Square-edged artifacts around the amount and Musashi's name prove the text was pasted on afterward."
-              }
+              },
+              // Visuel généré (mockup SVG) illustrant le reçu falsifié
+              image: 'assets/images/evidence/recu_banque.jpg'
             },
             {
               id: 'audio',
@@ -278,8 +349,8 @@ const GAME_DATA = {
                 fr: "Aucun bruit de respiration humaine, des coupures bizarres entre les mots : le logiciel détecte la marque d'une IA qui a copié la voix de Musashi à partir de ses anciens discours.",
                 en: "No human breathing sounds, odd cuts between words: the software detects the signature of an AI that cloned Musashi's voice from her past speeches."
               },
-              // Visuel dédié : bascule sur l'interface du logiciel d'analyse audio
-              background: 'interface_audio'
+              // Image de l'interface du logiciel d'analyse, affichée dans le pop-up
+              image: "assets/images/backgrounds/processed/interface_du_logiciel_d'analyse_audio_durant_la_verification_de_l'audio.png"
             },
             {
               id: 'compte',
@@ -288,8 +359,8 @@ const GAME_DATA = {
                 fr: "Le compte a été créé le jour même à trois heures du matin, et a envoyé le même message à quarante-cinq groupes en moins de dix secondes. Le travail d'un bot automatique.",
                 en: "The account was created that very day at three in the morning, and sent the same message to forty-five groups in under ten seconds. The work of an automated bot."
               },
-              // Réutilise le visuel Discord pour ancrer visuellement Shadow_01
-              background: 'salle_info'
+              // Capture Discord affichée dans le pop-up (ancre visuelle Shadow_01)
+              image: "assets/images/backgrounds/processed/image_de_l'interface_discord_de_kirito.png"
             }
           ],
           next: 'analyse_etape3'
@@ -316,15 +387,17 @@ const GAME_DATA = {
               en: "All that's left is to present everything before the principal does something irreversible."
             }}
           ],
-          next: 'chap3:acte4_intro',
+          next: 'trans_bureau_directeur',
           unlocks: 'chap3'
-        }
+        },
+
+        trans_bureau_directeur: { type: 'transition', background: 'bureau_directeur', text: { fr: 'Direction le bureau du directeur…', en: "Heading to the principal's office…" }, next: 'chap3:acte4_intro' }
       }
     },
 
-
+    // ============================================================
     // CHAPITRE III — LA TRAHISON  (Acte IV + Épilogue)
-   
+    // ============================================================
     {
       id: 'chap3',
       number: 'III',
@@ -369,7 +442,7 @@ const GAME_DATA = {
                 en: 'The file is a fake, fabricated by a network of automated bots.'
               },
               correct: true,
-              goto: 'resultat_victoire'
+              goto: 'loading_verdict_ok'
             },
             {
               label: {
@@ -377,9 +450,24 @@ const GAME_DATA = {
                 en: 'Musashi is indeed guilty — the evidence is damning.'
               },
               correct: false,
-              goto: 'resultat_erreur'
+              goto: 'loading_verdict_ko'
             }
           ]
+        },
+
+        loading_verdict_ok: {
+          type: 'transition',
+          background: 'bureau_directeur',
+          duration: 2600,
+          text: { fr: 'Le directeur examine les arguments…', en: 'The principal reviews the arguments…' },
+          next: 'resultat_victoire'
+        },
+        loading_verdict_ko: {
+          type: 'transition',
+          background: 'bureau_directeur',
+          duration: 2200,
+          text: { fr: 'Le directeur pèse le pour et le contre…', en: 'The principal weighs the arguments…' },
+          next: 'resultat_erreur'
         },
 
         resultat_erreur: {
@@ -415,8 +503,9 @@ const GAME_DATA = {
 
         epilogue: {
           type: 'dialogue',
-          // Affiche directement l'image du message de l'antagoniste (voir assets.js)
-          background: 'exterieur_nuit',
+          // Kirito dehors, devant le campus, de nuit — Shadow apparaît via
+          // son portrait de personnage (déjà en scène côté droit)
+          background: 'portail_nuit',
           characters: [
             { id: 'kirito', side: 'left' },
             { id: 'shadow', side: 'right' }
@@ -440,7 +529,7 @@ const GAME_DATA = {
 
         fin: {
           type: 'result',
-          background: 'exterieur_nuit',
+          background: 'portail_nuit',
           title: { fr: 'Fin du chapitre III', en: 'End of Chapter III' },
           text: { fr: 'À suivre…', en: 'To be continued…' },
           next: null

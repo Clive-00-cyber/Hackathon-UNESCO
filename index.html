@@ -105,7 +105,10 @@
         <p class="evidence-intro" id="evidence-intro"></p>
         <div class="evidence-layout">
           <div class="evidence-list" id="evidence-list"></div>
-          <div class="evidence-detail" id="evidence-detail" data-i18n="evidence_placeholder">Sélectionne une preuve à examiner.</div>
+          <div class="evidence-detail" id="evidence-detail">
+            <img class="evidence-detail-img" id="evidence-detail-img" alt="" />
+            <p class="evidence-detail-text" id="evidence-detail-text" data-i18n="evidence_placeholder">Sélectionne une preuve à examiner.</p>
+          </div>
         </div>
         <button class="primary-btn evidence-continue" id="evidence-continue" data-i18n="continue">Continuer</button>
       </div>
@@ -133,7 +136,24 @@
       <div class="result-frame">
         <h2 class="result-title" id="result-title"></h2>
         <p class="result-text" id="result-text"></p>
-        <button class="primary-btn" id="result-continue" data-i18n="continue">Continuer</button>
+        <button class="primary-btn visible" id="result-continue" data-i18n="continue">Continuer</button>      </div>
+    </section>
+
+
+    <section class="screen" data-screen="transition">
+      <div class="transition-frame">
+        <div class="transition-spinner"><span></span><span></span><span></span></div>
+        <p class="transition-text" id="transition-text"></p>
+      </div>
+    </section>
+
+       <section class="screen" data-screen="audioplayer">
+      <div class="audioplayer-frame">
+        <p class="audioplayer-label" id="audioplayer-label" data-i18n="audioplayer_label">Fichier audio</p>
+        <button class="audioplayer-play" id="audioplayer-play" aria-label="Lecture">▶</button>
+        <div class="audioplayer-progress"><div class="audioplayer-progress-fill" id="audioplayer-progress-fill"></div></div>
+        <p class="audioplayer-hint" id="audioplayer-hint" data-i18n="audioplayer_hint">Cliquez pour écouter</p>
+        <button class="primary-btn visible" id="audioplayer-continue" data-i18n="continue">Continuer</button>
       </div>
     </section>
 
