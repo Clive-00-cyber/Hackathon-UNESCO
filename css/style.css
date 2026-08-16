@@ -97,6 +97,12 @@ html, body {
 
 /* gestion des écrans*/
 .screen {
+
+
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4vh;
+
   position: absolute;
   inset: 0;
   z-index: 2;
